@@ -202,10 +202,16 @@ function respawn(b: RapierRigidBody, onKill?: () => void) {
   _quat.setFromUnitVectors(FWD_LOCAL, _dir);
   b.setRotation({ x: _quat.x, y: _quat.y, z: _quat.z, w: _quat.w }, true);
 
-  // 600ms white-in envelope (0→1→0); DOM overlay (Task 13) reads craftState.killFlash
+  // 600ms white-in envelope (0→1→0); DOM overlay (Task 13) reads craftState.killFlash.
+  // Task 15 a11y floor: skip the animated flash envelope when the user opts out
+  // of motion (reduced-motion normally routes to the static tier; this gates the
+  // edge case where a live-tier user also has the preference set).
   craftState.killFlash = 0;
-  gsap.killTweensOf(craftState);
-  gsap.to(craftState, { killFlash: 1, duration: 0.3, yoyo: true, repeat: 1, ease: 'power2.inOut' });
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduceMotion) {
+    gsap.killTweensOf(craftState);
+    gsap.to(craftState, { killFlash: 1, duration: 0.3, yoyo: true, repeat: 1, ease: 'power2.inOut' });
+  }
 
   onKill?.(); // tidal-destruction audio cue wired by Task 9
 }

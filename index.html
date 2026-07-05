@@ -11,6 +11,28 @@
     <style>
       html { background: #000; }
       html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+
+      /* Task 15 a11y floor — global, so it covers the ENGAGE buttons and every
+         interactive element without per-component work. --star-hot is the one
+         accent sanctioned for UI (art-direction.md). */
+      :focus-visible {
+        outline: 2px solid #AFE3FF; /* --star-hot: high-contrast focus ring */
+        outline-offset: 3px;
+        border-radius: 2px;
+      }
+
+      /* Respect prefers-reduced-motion everywhere. Kills CSS transitions (the
+         preloader opacity fades) under the query. Reduced-motion users normally
+         land on the static tier; this is defense-in-depth for any live-tier
+         motion. JS motion (Craft.tsx gsap flash) is gated at its call site. */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
     </style>
   </head>
   <body>
