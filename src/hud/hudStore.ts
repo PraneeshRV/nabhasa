@@ -12,6 +12,7 @@ import { create } from 'zustand';
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { craftState } from '../flight/craftState';
+import { useCourierStore, missionById } from '../game/courier'; // spec Task 12 — mission label in the HUD
 import { beamState } from '../signatures/PulsarBeams';
 import { useRegionStore, type RegionId } from '../world/regions';
 import { timeDilation, tidalAccel, surfaceGravity } from './physics-data';
@@ -85,6 +86,21 @@ export function HudSampler() {
       beamTransit: beamState.transit,
       killFlash: craftState.killFlash,
     });
+
+    // Courier mission line (spec Task 12): active-mission label + live distance
+    // to the objective beacon (1 wu = 1 km). Uses the existing setMission pattern
+    // → the Telemetry TR row shows it in JetBrains Mono / --ui-cold. null hides
+    // the row when no mission is active.
+    const cs = useCourierStore.getState();
+    let mission: string | null = null;
+    if (cs.status === 'active' && cs.missionId) {
+      const m = missionById(cs.missionId);
+      if (m) {
+        const d = Math.hypot(craftState.pos.x - m.to[0], craftState.pos.y - m.to[1], craftState.pos.z - m.to[2]);
+        mission = `${m.name} · ${Math.round(d)} km`;
+      }
+    }
+    useHudStore.getState().setMission(mission);
   });
   return null;
 }

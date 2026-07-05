@@ -34,6 +34,7 @@ import { FIXED_DT, KILL_RADIUS, PLAY_RADIUS } from '../world/scale';
 import { regionAt, useRegionStore } from '../world/regions';
 import { craftState } from './craftState'; // leaf — same singleton, no Rapier pull
 import { getPlanetPositions } from '../world/LichPlanets'; // leaf singleton — planet perturbation (A1)
+import { useCourierStore, fuelFraction } from '../game/courier'; // pure FSM (no Rapier/three) — spec Task 12 wiring
 
 // ---- feel tunables (one place; adjust during the manual session) -------------
 const THRUST_ACCEL = 40; // wu/s² max linear (spec); boost multiplies by BOOST_MUL
@@ -86,6 +87,7 @@ export function Craft({ onKill }: { onKill?: () => void }) {
 function CraftBody({ onKill }: { onKill?: () => void }) {
   const rb = useRef<RapierRigidBody | null>(null);
   const stepRef = useRef(0);
+  const prevInteract = useRef(false); // rising-edge detect for courier mission accept
 
   useEffect(() => {
     const b = rb.current;
@@ -155,6 +157,23 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
     if (stepRef.current++ % REGION_PUSH_EVERY === 0) {
       useRegionStore.getState().setRegion(regionAt(pos));
     }
+
+    // courier mission loop (spec Task 12): step senses offer/delivery + drains
+    // fuel ONCE per FIXED_DT. No throttle here — drain is dt-accurate, unlike the
+    // spatial region push above. getState()/set() is external-store mutation, not
+    // React setState — safe in this hook (same idiom as useRegionStore).
+    const courier = useCourierStore.getState();
+    courier.step({ pos: [pos.x, pos.y, pos.z], thrust: input.thrust, dt: FIXED_DT });
+    // Accept an offered mission on the interact rising edge (KeyC / gamepad A).
+    // reduce() is a no-op unless status === 'offered', so a held C is safe.
+    const after = useCourierStore.getState();
+    if (after.status === 'offered' && input.interact && !prevInteract.current) {
+      after.reduce({ type: 'accept' });
+    }
+    prevInteract.current = input.interact;
+    // Sync mission fuel → shared craftState so the HUD Fuel% line reflects drain
+    // (craftState.fuel is the 10Hz HUD sink; the courier store owns the value).
+    craftState.fuel = fuelFraction(useCourierStore.getState());
 
     // kill: tidal destruction + respawn
     if (r < KILL_RADIUS) respawn(b, onKill);

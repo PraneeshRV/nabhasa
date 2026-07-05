@@ -17,6 +17,9 @@ import { startAmbient } from './audio/ambient';
 import { initSonify } from './audio/sonify';
 import { Telemetry } from './hud/Telemetry';
 import { HudSampler } from './hud/hudStore';
+import { MissionResult } from './hud/MissionResult'; // spec Task 12 — delivered-mission overlay (desktop)
+import { Beacons } from './signatures/Beacons'; // spec Task 12 — active-mission beacon pillars (desktop)
+import { useCourierStore } from './game/courier'; // pure FSM — tidal-death fail dispatch below
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
@@ -54,8 +57,9 @@ function MainExperience({ tier }: { tier: Tier }) {
       <LichPlanets />
       <PulsarBeams tier={tier} />
       <DysonSwarm tier={tier} />
+      <Beacons />
       <Suspense fallback={null}>
-        <Craft />
+        <Craft onKill={() => useCourierStore.getState().reduce({ type: 'fail', reason: 'destroyed' })} />
       </Suspense>
       <CameraRig />
       <PerfLogger />
@@ -123,6 +127,7 @@ function ExperienceShell({ tier }: { tier: Tier }) {
     <>
       {entered && <MainExperience tier={tier} />}
       {entered && <Telemetry />}
+      {entered && <MissionResult />}
       {!entered && (
         <CollapsePreloader
           tier={tier}
