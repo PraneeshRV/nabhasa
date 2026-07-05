@@ -1,0 +1,165 @@
+/* Diegetic HUD overlay (spec Task 13) + crafted cursor (spec Task 13 details pass).
+   Palette tokens are art-direction.md hexes single-sourced here for the HUD layer.
+   Typography: JetBrains Mono telemetry 13px (values) / 11px (micro-labels), tracking
+   +0.08em on labels, tabular-nums on values (art-direction typography table). */
+
+.hud-root {
+  /* art-direction palette (exact) */
+  --void: #030407;
+  --star-hot: #afe3ff;
+  --ui-cold: #8a93a6;
+  --ui-dim: #3a4150;
+  --hud-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo,
+    Consolas, monospace; /* ponytail: no woff2 this pass — system stack + flag */
+
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none; /* never block the canvas / buttons beneath */
+  font-family: var(--hud-mono);
+  color: var(--ui-cold);
+  font-feature-settings: 'tnum' 1; /* tabular-nums so values don't dance */
+  letter-spacing: 0.02em;
+}
+
+.hud-cluster {
+  position: absolute;
+  max-width: 46vw;
+  padding: 10px 12px;
+  background: rgba(3, 4, 7, 0.55); /* subtle backdrop: WCAG AA on near-black */
+  border: 1px solid var(--ui-dim);
+  border-radius: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  /* WCAG AA: --ui-cold #8a93a6 on rgba(3,4,7,.55)≈#05070b ⇒ ratio ≈6.0:1 ✓ */
+}
+.hud-tl {
+  top: 16px;
+  left: 16px;
+}
+.hud-tr {
+  top: 16px;
+  right: 16px;
+  text-align: right;
+}
+.hud-bl {
+  bottom: 16px;
+  left: 16px;
+}
+.hud-br {
+  bottom: 16px;
+  right: 16px;
+  text-align: right;
+}
+
+.hud-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ui-dim);
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+.hud-val {
+  color: var(--ui-cold);
+}
+.hud-row {
+  white-space: nowrap;
+}
+
+/* value-pulse: the value currently being sonified (beam transit) may lift to
+   --star-hot. 2 Hz period = 500 ms ⇒ comfortably under the 3 Hz photosafety cap
+   in art-direction + spec Global Constraints. One pulse, ease, no strobe. */
+@keyframes hud-pulse {
+  0%,
+  100% {
+    color: var(--ui-cold);
+  }
+  50% {
+    color: var(--star-hot);
+  }
+}
+.hud-pulse {
+  animation: hud-pulse 0.5s ease-in-out infinite;
+}
+
+/* RADIATION TRANSIT banner — appears only while a beam sweeps the craft. */
+.hud-transit {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--star-hot);
+  text-transform: uppercase;
+  background: rgba(3, 4, 7, 0.55);
+  border: 1px solid var(--star-hot);
+  border-radius: 2px;
+  padding: 6px 14px;
+}
+
+/* Respawn white-in veil: 600 ms ramp driven by killFlash (0..1) at 10 Hz.
+   Sanctioned single-pulse (spec Task 6 kill sequence); <3 Hz. */
+.hud-veil {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+}
+
+/* ---- crafted cursor (spec details pass): dot + soft ring, thrust-reactive ----
+   System cursor hidden only inside the live experience (body.hud-cursor-active);
+   preloader / share-card buttons keep the native cursor. */
+body.hud-cursor-active {
+  cursor: none;
+}
+.hud-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 1px solid var(--star-hot);
+  border-radius: 50%;
+  opacity: 0.7;
+  pointer-events: none;
+  transform: translate3d(-100px, -100px, 0) scale(1);
+  transition: opacity 0.2s linear;
+  will-change: transform;
+}
+.hud-cursor::after {
+  /* center dot */
+  content: '';
+  position: absolute;
+  inset: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  background: var(--star-hot);
+  border-radius: 50%;
+}
+
+/* Touch devices have no cursor — hide the crafted one, restore native. */
+@media (pointer: coarse) {
+  body.hud-cursor-active {
+    cursor: auto;
+  }
+  .hud-cursor {
+    display: none;
+  }
+}
+
+/* Reduced-motion floor (spec Task 15 a11y): no value pulse, no thrust cursor
+   scaling. The static tier never mounts this overlay (App routes to
+   StaticExperience), but guard regardless. */
+@media (prefers-reduced-motion: reduce) {
+  .hud-pulse {
+    animation: none;
+  }
+  .hud-cursor {
+    transition: none;
+  }
+}

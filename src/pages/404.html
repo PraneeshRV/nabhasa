@@ -1,0 +1,118 @@
+<!doctype html>
+<!-- Crafted 404 (spec Task 13 details pass): a single drifting derelict tile —
+     a swarm fragment torn loose — and one line. No second accent, no glitch.
+     Palette + typography roles are art-direction.md: Title = Space Grotesk display,
+     telemetry lines = JetBrains Mono. HTML bg #000 is the one sanctioned pure-black
+     use (pre-canvas). System font fallback stacks (no woff2 this pass — flagged).
+     Lighting = single-source rim on the tile edge (Gargantua discipline), not
+     ambient glow. NOTE: Vite/Vercel serving wiring (copy to public/ or rewrite) is
+     out of this pass — conductor gates deploy (Task 16). -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>NABHASA — Signal Lost</title>
+    <style>
+      :root {
+        --void: #030407;
+        --star-hot: #afe3ff;
+        --ui-cold: #8a93a6;
+        --ui-dim: #3a4150;
+        --display: 'Space Grotesk', system-ui, 'Segoe UI', sans-serif;
+        --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo,
+          Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        font-family: var(--mono);
+        color: var(--ui-cold);
+        overflow: hidden;
+      }
+      .stage {
+        position: relative;
+        width: min(92vw, 520px);
+        text-align: center;
+      }
+      /* Title role = display font, art-direction Title size (clamp 40–96px). */
+      .code {
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: clamp(64px, 16vw, 128px);
+        line-height: 1;
+        letter-spacing: 0.02em;
+        color: var(--star-hot);
+        margin: 0 0 28px;
+      }
+      /* Derelict tile: a single mirror shard catching the star from one edge —
+         thin directional rim, not ambient glow (single-source discipline). */
+      .tile {
+        width: 110px;
+        height: 140px;
+        margin: 0 auto 32px;
+        background: linear-gradient(
+          150deg,
+          rgba(95, 168, 216, 0.1),
+          rgba(3, 4, 7, 0.95) 72%
+        );
+        border: 1px solid var(--ui-dim);
+        border-left: 1px solid rgba(175, 227, 255, 0.45); /* the lit edge */
+        transform: rotate(8deg);
+        animation: drift 9s ease-in-out infinite alternate;
+      }
+      @keyframes drift {
+        from {
+          transform: rotate(8deg) translate(0, 0);
+        }
+        to {
+          transform: rotate(-6deg) translate(14px, -10px);
+        }
+      }
+      .line {
+        font-size: 13px;
+        letter-spacing: 0.06em;
+        color: var(--ui-cold);
+        margin: 0 0 26px;
+      }
+      a {
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        color: var(--ui-cold);
+        text-decoration: none;
+        text-transform: uppercase;
+        border: 1px solid var(--ui-dim);
+        padding: 10px 18px;
+        transition: color 0.2s linear, border-color 0.2s linear;
+      }
+      a:hover,
+      a:focus-visible {
+        color: var(--star-hot);
+        border-color: var(--star-hot);
+        outline: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tile {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <div class="tile" aria-hidden="true"></div>
+      <p class="code">404</p>
+      <p class="line">The swarm has no tile here.</p>
+      <a href="/">Return to the star</a>
+    </main>
+  </body>
+</html>

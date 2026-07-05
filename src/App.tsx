@@ -14,6 +14,8 @@ import { StaticExperience } from './fallback/StaticExperience';
 import { initAudio, setMuted } from './audio/engine';
 import { startAmbient } from './audio/ambient';
 import { initSonify } from './audio/sonify';
+import { Telemetry } from './hud/Telemetry';
+import { HudSampler } from './hud/hudStore';
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
@@ -49,6 +51,7 @@ function MainExperience({ tier }: { tier: Tier }) {
       </Suspense>
       <CameraRig />
       <PerfLogger />
+      <HudSampler />
     </NabhasaCanvas>
   );
 }
@@ -111,6 +114,7 @@ function ExperienceShell({ tier }: { tier: Tier }) {
   return (
     <>
       {entered && <MainExperience tier={tier} />}
+      {entered && <Telemetry />}
       {!entered && (
         <CollapsePreloader
           tier={tier}
