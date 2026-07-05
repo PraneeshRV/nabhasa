@@ -45,17 +45,9 @@ import {
   SphereGeometry,
 } from 'three/webgpu';
 import type { CubeTexture } from 'three/webgpu';
+import { QUALITY } from '../core/quality';
 import type { Tier } from '../core/tiers';
 import { createNebulaMaterial } from '../shaders/nebula';
-
-// Spec says 30k stars; QUALITY owns particle/swarm counts but not starfield, so
-// this local table is the tier dial (static tier ships no canvas → 0).
-const STAR_COUNT: Record<Tier, number> = {
-  'webgpu-high': 30_000,
-  'webgpu-low': 16_000,
-  webgl2: 8_000,
-  static: 0,
-};
 
 const SHELL_NEAR = 2500;
 const SHELL_FAR = 6000;
@@ -165,7 +157,7 @@ export function getStarfieldCube(): CubeTexture | null {
 // ── Component ───────────────────────────────────────────────────────────────
 export function Starfield({ tier }: { tier: Tier }) {
   const { gl } = useThree();
-  const count = STAR_COUNT[tier];
+  const count = QUALITY[tier].starCount;
   const nebulaMat = useMemo(() => createNebulaMaterial(), []);
   const pointsMat = useMemo(() => createStarPointsMaterial(), []);
   const geo = useMemo(() => (count > 0 ? buildStarGeometry(count) : null), [count]);

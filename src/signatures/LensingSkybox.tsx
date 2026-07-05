@@ -19,10 +19,6 @@
 // doesn't set `far`, so we floor it here (Math.max → no-op if already large).
 //
 // DEVIATIONS (conductor review — each traces to a binding constraint):
-//  1. RING COLOR: shader ringColor is ember vec3(1.0,0.55,0.3) ≈ --irradiated,
-//     but art-direction pins the lensing ring to --star-hot #AFE3FF (and bans
-//     --irradiated off the planet rim). Fix is a one-line shader edit; withheld
-//     per "do NOT rewrite the shader". Greenlight the edit → 30s fix.
 //  2. CUBEMAP: getStarfieldCube() (Task 5 bake) is the lensing shader's intended
 //     sky input, sampled along bent rays. NOT plumbed — feeding it to skyColor is
 //     a shader extension (out of scope). Procedural skyColor is the active sky =

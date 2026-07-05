@@ -4,12 +4,16 @@ import { usePerfProbe } from './core/perfProbe';
 import { detectTier, type Tier } from './core/tiers';
 import { QUALITY } from './core/quality';
 import { Starfield } from './world/Starfield';
-import { NeutronStar } from './world/NeutronStar';
+import { NeutronStar, starSpinAngle, starClock } from './world/NeutronStar';
 import { PulsarBeams } from './signatures/PulsarBeams';
 import { DysonSwarm } from './signatures/DysonSwarm';
 import { CameraRig } from './flight/cameraRig';
 import { LensingSkybox } from './signatures/LensingSkybox';
 import { CollapsePreloader } from './signatures/CollapsePreloader';
+import { StaticExperience } from './fallback/StaticExperience';
+import { initAudio, setMuted } from './audio/engine';
+import { startAmbient } from './audio/ambient';
+import { initSonify } from './audio/sonify';
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
@@ -83,6 +87,22 @@ function useRapierWarm(): boolean {
   return ready;
 }
 
+// WebAudio unlock — MUST run inside the ENGAGE click (browser autoplay policy), so
+// CollapsePreloader fires it synchronously from the gesture, NOT from the delayed
+// (650ms setTimeout) scene swap. Guards double-init: initAudio is idempotent and
+// startAmbient has its own guard, but initSonify is not — a second call would stack
+// a second pulse tone. initSonify's handle is left for Task 9's update loop; its
+// base-gain heartbeat plays as soon as it's armed.
+let audioEngaged = false;
+function engageAudio() {
+  if (audioEngaged) return;
+  audioEngaged = true;
+  initAudio();
+  setMuted(false); // master defaults muted; "sound on" unmutes
+  startAmbient();
+  initSonify({ getSpinPhase: () => starSpinAngle(starClock.t) });
+}
+
 // Live tiers: collapse gate → main scene. The preloader owns the only active
 // canvas during the burst (clean perf gate); the main scene mounts on ENGAGE.
 function ExperienceShell({ tier }: { tier: Tier }) {
@@ -95,8 +115,8 @@ function ExperienceShell({ tier }: { tier: Tier }) {
         <CollapsePreloader
           tier={tier}
           ready={rapierReady}
-          // sound: boolean — forwarded to Task 10 audio when merged.
           onEnter={() => setEntered(true)}
+          onSoundUnlock={engageAudio}
         />
       )}
     </>
@@ -127,6 +147,6 @@ export function App() {
   }
 
   if (!tier) return null;
-  if (tier === 'static') return <MainExperience tier={tier} />; // reduced-motion: skip the collapse
+  if (tier === 'static') return <StaticExperience />; // reduced-motion: no-motion fallback (Task 15 stub)
   return <ExperienceShell tier={tier} />;
 }

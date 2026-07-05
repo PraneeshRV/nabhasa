@@ -227,8 +227,10 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
     const { loaded, total: items } = loadCountsRef.current;
     const managerProgress = items > 0 ? loaded / items : 0;
     const managerIdle = items === 0 || loaded >= items;
-    const timeFloor = elapsedRef.current / MIN_LOAD_S;
-    const progress = clamp01(Math.max(timeFloor, managerProgress, ready ? 1 : 0));
+    // Visual progress = real load signals only. MIN_LOAD_S still floors the
+    // LOAD→IMPLODE transition below (so the beat plays on fast machines), but a
+    // slow network never gets fake completion painted on the star.
+    const progress = clamp01(Math.max(managerProgress, ready ? 1 : 0));
     collapseUniforms.uProgress.value = progress;
 
     // Safety: a hung loader must not stall the gate forever.
@@ -375,17 +377,26 @@ const engageBtn = (primary: boolean): React.CSSProperties => ({
   // ponytail: no hover lib; minimal hover via CSS-in-JS is overkill here.
 });
 
-type Props = { tier: Tier; ready: boolean; onEnter: (sound: boolean) => void; dev?: boolean };
+type Props = {
+  tier: Tier;
+  ready: boolean;
+  onEnter: () => void; // delayed scene swap (fires 650ms after the gesture, in setTimeout)
+  onSoundUnlock?: () => void; // synchronous WebAudio unlock, MUST fire inside the click
+  dev?: boolean;
+};
 
-export function CollapsePreloader({ tier, ready, onEnter, dev = false }: Props) {
+export function CollapsePreloader({ tier, ready, onEnter, onSoundUnlock, dev = false }: Props) {
   const [engage, setEngage] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   // Fade the overlay out BEFORE App swaps in the main scene, so the reborn
   // neutron star dissolves into the live experience instead of hard-cutting.
+  // The audio unlock fires synchronously HERE (inside the click) — only the scene
+  // swap is delayed. Autoplay policy: the user-gesture stack can't cross setTimeout.
   const handleEngage = (sound: boolean) => {
+    if (sound) onSoundUnlock?.();
     setLeaving(true);
-    window.setTimeout(() => onEnter(sound), 650);
+    window.setTimeout(onEnter, 650);
   };
 
   // WebGPU canvas mirror of core/renderer.tsx: AgX, sRGB out, forceWebGL on the

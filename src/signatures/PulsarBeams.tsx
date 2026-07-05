@@ -25,6 +25,7 @@ import { Group, PointLight, Quaternion, Vector3 } from 'three';
 import { starClock, starSpinAngle } from '../world/NeutronStar';
 import { craftState } from '../flight/Craft';
 import { createBeamMaterial, BEAM_LENGTH, BEAM_RADIUS, beamUniforms } from '../shaders/pulsarBeam';
+import { QUALITY } from '../core/quality';
 import type { Tier } from '../core/tiers';
 
 // 15° = spin-axis inclination (world Y → star's spin axis), matches the
@@ -46,14 +47,6 @@ const ONE_MINUS_COS_HALF = 1 - COS_HALF;
 const TRANSIT_TAU = 0.08;
 const TRANSIT_LIFT = 0.8; // intensity 1.0 → 1.8 at full transit
 const LIGHT_SCALE = 4000; // point-light intensity at full transit (decay=2)
-
-// Per-tier cone resolution (QUALITY owns particle/swarm counts, not beams;
-// this local dial is the beam tier knob — static ships no canvas).
-const CONE_SEG: Record<Exclude<Tier, 'static'>, number> = {
-  'webgpu-high': 32,
-  'webgpu-low': 24,
-  webgl2: 16,
-};
 
 // ---- shared beam state (refs, NOT React state — zero per-frame setState) ----
 // sonify (Task 9) + Telemetry (Task 13) read this; phase-locked to starSpinAngle.
@@ -81,7 +74,7 @@ export function PulsarBeams({ tier }: { tier: Tier }) {
   const beamBRef = useRef<Group>(null);
   const lightRef = useRef<PointLight>(null);
   const material = useMemo(() => createBeamMaterial(), []);
-  const seg = tier === 'static' ? 16 : CONE_SEG[tier];
+  const seg = QUALITY[tier].beamSegments; // per-tier cone resolution (static hits the null return below before this renders)
 
   useEffect(() => () => material.dispose(), [material]);
 

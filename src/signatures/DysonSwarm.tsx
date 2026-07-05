@@ -78,6 +78,21 @@ const CONE_HALF = float((70 * Math.PI) / 180);
 const GOLDEN_ANGLE = float(2.399963229);
 const TWO_PI = float(Math.PI * 2);
 
+// Dedicated swarm key light (finding: the star pointLight @ 60000·decay2 falls to
+// ~0.074 at 900wu, so PBR specular on the metal tiles is imperceptible). Local,
+// non-decaying (decay=0) so tile glints read; a finite `distance` keeps it
+// region-scoped — it covers the swarm (~600wu) but not the star (~922wu away) or
+// the arrival path. Offset OFF the orbit center so the glint SWEEPS as tiles
+// revolve (a light at the exact center hits every inward normal dead-on → no
+// sweep). Intensity tuned for metal@0.92 / rough@0.25.
+const SWARM_KEY_POS: readonly [number, number, number] = [
+  SWARM_CENTER[0],
+  SWARM_CENTER[1] + 200,
+  SWARM_CENTER[2],
+];
+const SWARM_KEY_INTENSITY = 4; // ponytail: tune live if the glint reads weak or hot
+const SWARM_KEY_DIST = SWARM_RADIUS * 2.4; // ~600wu — covers swarm, not the star
+
 // hash01 → [0,1). Mirror of dysonMath.hash01 (fract(sin) family).
 const tslHash01 = /* @__PURE__ */ Fn(([i]: [any]) => fract(sin(i.mul(127.1).add(311.7)).mul(43758.5453)));
 
@@ -227,8 +242,18 @@ export function DysonSwarm({ tier }: { tier: Tier }) {
   // one draw call, count instances. frustumCulled false: positions are shader-derived
   // (not in the geometry bounding sphere), so culling would wrongly drop the swarm.
   return (
-    <instancedMesh args={[undefined, undefined, count] as any} material={mat} frustumCulled={false}>
-      <planeGeometry args={[1, 1]} />
-    </instancedMesh>
+    <>
+      <instancedMesh args={[undefined, undefined, count] as any} material={mat} frustumCulled={false}>
+        <planeGeometry args={[1, 1]} />
+      </instancedMesh>
+      {/* Region-scoped key light so metal-tile specular reads; R3F disposes on unmount. */}
+      <pointLight
+        position={SWARM_KEY_POS}
+        color="#AFE3FF"
+        intensity={SWARM_KEY_INTENSITY}
+        decay={0}
+        distance={SWARM_KEY_DIST}
+      />
+    </>
   );
 }
