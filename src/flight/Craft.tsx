@@ -34,7 +34,7 @@ import { FIXED_DT, KILL_RADIUS, PLAY_RADIUS } from '../world/scale';
 import { regionAt, useRegionStore } from '../world/regions';
 import { craftState } from './craftState'; // leaf — same singleton, no Rapier pull
 import { getPlanetPositions } from '../world/LichPlanets'; // leaf singleton — planet perturbation (A1)
-import { useCourierStore, fuelFraction } from '../game/courier'; // pure FSM (no Rapier/three) — spec Task 12 wiring
+import { useCourierStore, fuelFraction, missionById } from '../game/courier'; // pure FSM (no Rapier/three) — spec Task 12 wiring
 
 // ---- feel tunables (one place; adjust during the manual session) -------------
 const THRUST_ACCEL = 40; // wu/s² max linear (spec); boost multiplies by BOOST_MUL
@@ -176,7 +176,14 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
     craftState.fuel = fuelFraction(useCourierStore.getState());
 
     // kill: tidal destruction + respawn
-    if (r < KILL_RADIUS) respawn(b, onKill);
+    if (r < KILL_RADIUS) {
+      // Respawn at the ACTIVE mission's source beacon (finding 6): a kill on m2–m5
+      // otherwise drops the craft at m1.from (RESPAWN_POS) → a long dead-air flight
+      // back to the failed mission's `from`. Idle (no mission) falls back to spawn.
+      const cs = useCourierStore.getState();
+      const m = cs.missionId ? missionById(cs.missionId) : null;
+      respawn(b, onKill, m?.from ?? RESPAWN_POS);
+    }
   });
 
   return (
@@ -199,12 +206,12 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
   );
 }
 
-function respawn(b: RapierRigidBody, onKill?: () => void) {
-  b.setTranslation({ x: RESPAWN_POS[0], y: RESPAWN_POS[1], z: RESPAWN_POS[2] }, true);
+function respawn(b: RapierRigidBody, onKill: (() => void) | undefined, at: readonly [number, number, number]) {
+  b.setTranslation({ x: at[0], y: at[1], z: at[2] }, true);
   b.setLinvel({ x: 0, y: 0, z: 0 }, true);
   b.setAngvel({ x: 0, y: 0, z: 0 }, true);
   // face the star at origin: rotate local -Z onto (pos → origin)
-  _dir.set(-RESPAWN_POS[0], -RESPAWN_POS[1], -RESPAWN_POS[2]).normalize();
+  _dir.set(-at[0], -at[1], -at[2]).normalize();
   _quat.setFromUnitVectors(FWD_LOCAL, _dir);
   b.setRotation({ x: _quat.x, y: _quat.y, z: _quat.z, w: _quat.w }, true);
 

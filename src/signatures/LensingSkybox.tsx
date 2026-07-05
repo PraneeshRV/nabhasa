@@ -5,9 +5,9 @@
 //
 // Tier behavior (QUALITY[tier].lensing):
 //   'full' — skybox sphere at full resolution (proven dev-harness path).
-//   'half' — same proven sphere; half-res RT + bilateral-upscale DEFERRED
-//            (see DEVIATIONS). Lensing runs full-res here.
 //   'off'  — renders nothing; <Starfield> owns the sky (App gates the branch).
+//   (half-res RT + bilateral upscale is DEFERRED — see DEVIATION 3; until a live
+//   tier proves <30fps at full-res every lensing tier ships 'full'.)
 //
 // Einstein ring strengthens as the camera nears the star: camera→origin distance
 // drives the shader's existing ringIntensity uniform each frame (refs only, no
@@ -23,10 +23,11 @@
 //     sky input, sampled along bent rays. NOT plumbed — feeding it to skyColor is
 //     a shader extension (out of scope). Procedural skyColor is the active sky =
 //     the graceful-null fallback. Wire when the conductor greenlights the extension.
-//  3. HALF-RES: 'half' tier renders full-res. The RT+bilateral pipeline is blind
-//     WebGPU render-graph work (can't verify pass ordering here); dev harness
-//     measured 60fps WebGL2/Intel, so the fps gate holds without it. Add when a
-//     live tier proves <30fps at full-res.
+//  3. HALF-RES: no 'half' tier ships — every lensing tier renders the full-res
+//     sphere (QUALITY says 'full'). The RT+bilateral pipeline is blind WebGPU
+//     render-graph work (can't verify pass ordering here); dev harness measured
+//     60fps WebGL2/Intel, so the fps gate holds without it. Add a 'half' tier
+//     when a live tier proves <30fps at full-res.
 
 import { useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -86,7 +87,7 @@ export function LensingSkybox({ tier }: { tier: Tier }) {
 
   if (mode === 'off') return null;
 
-  // 'full' and 'half' both render the proven sphere (DEVIATION 3). renderOrder=-1
+  // 'full' renders the proven sphere (DEVIATION 3: half-res deferred). renderOrder=-1
   // + the material's depthWrite=false → paints as a background behind all geometry.
   return (
     <mesh material={material} frustumCulled={false} renderOrder={-1}>

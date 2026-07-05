@@ -331,6 +331,14 @@ function CollapseDevControls({
 }
 
 function EngageGate({ show, onEnter }: { show: boolean; onEnter: (sound: boolean) => void }) {
+  // The buttons are always mounted (show toggles opacity/pointerEvents), so
+  // autoFocus={show} only fired on first mount — when the gate appears focus was
+  // NOT moved to ENGAGE. Move it imperatively on each show→true transition so
+  // keyboard users land on the primary action, not the browser default.
+  const primaryRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (show) primaryRef.current?.focus();
+  }, [show]);
   return (
     <div
       style={{
@@ -349,10 +357,9 @@ function EngageGate({ show, onEnter }: { show: boolean; onEnter: (sound: boolean
       }}
     >
       <button
+        ref={primaryRef}
         onClick={() => onEnter(true)}
         style={engageBtn(true)}
-        // Keyboard-reachable (Task 15 a11y floor): ENTER/SPACE activates.
-        autoFocus={show}
       >
         ENGAGE — sound on
       </button>

@@ -188,12 +188,15 @@ export function ResultCard({ mission, fuelFrac, timeS, score, best, trajectory, 
         // user cancelled or share failed → fall through to download
       }
     }
-    // download fallback
+    // download fallback. Firefox requires the anchor be connected to the DOM to
+    // trigger the download (Chrome tolerates a detached node); append → click → remove.
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `nabhasa-${mission.id}.png`;
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     URL.revokeObjectURL(url);
     setStatus('shared');
   }, [mission, fuelFrac, timeS, score, best, trajectory]);
@@ -203,6 +206,7 @@ export function ResultCard({ mission, fuelFrac, timeS, score, best, trajectory, 
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-label={`Mission complete: ${mission.name}`}
       style={{
         position: 'fixed',

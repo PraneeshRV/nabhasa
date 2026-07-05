@@ -58,7 +58,18 @@ const FLARE_DECAY_MS = 200;
 const FLARE_Q = 6;
 const FLARE_HZ = 900;
 
-const noop: SonifyHandle = { update() {}, dispose() {} };
+export const noop: SonifyHandle = { update() {}, dispose() {} };
+
+// Desktop active-handle registry (Task 9 update loop). The handle is created in
+// the ENGAGE gesture (App.engageAudio) but driven from HudSampler's 10Hz tick and
+// disposed on experience unmount — three lifetimes bridged by one module
+// singleton. Defaults to noop so update()/dispose() before arm or after dispose
+// are safe no-ops.
+let _active: SonifyHandle = noop;
+export const getActiveSonify = (): SonifyHandle => _active;
+export const setActiveSonify = (h: SonifyHandle): void => {
+  _active = h;
+};
 
 // 2 s brown noise (Paul Kellet integrator) for the roar loop.
 function makeBrownNoise(ctx: AudioContext, seconds: number): AudioBuffer {

@@ -3,7 +3,7 @@
 // oracle. Exact tolerance bands per spec.
 import { describe, it, expect } from 'vitest';
 import { Vector3 } from 'three';
-import { gravityAccel, gravityAccelWithPlanets } from '../src/flight/gravity';
+import { gravityAccel, gravityAccelWithPlanets, PLANET_GMS, PLANET_RADII_WU } from '../src/flight/gravity';
 import { GM_SIM, KILL_RADIUS, FIXED_DT } from '../src/world/scale';
 
 describe('gravityAccel', () => {
@@ -97,5 +97,60 @@ describe('gravityAccelWithPlanets (Amendment A1)', () => {
     expect(a.x).toBeCloseTo(0.2, 6);
     expect(a.y).toBeCloseTo(0, 12);
     expect(a.z).toBeCloseTo(0, 12);
+  });
+});
+
+describe('gravityAccelWithPlanets — stability + perturbation magnitude (A1 path the Craft step runs)', () => {
+  // Spec Task 6's stability gate exercises star-only gravityAccel, but the shipped
+  // Craft step calls gravityAccelWithPlanets — a different function with no test.
+  // These cover that path: planets perturb, never dominate (real-ratio physics),
+  // and an orbit under planet perturbation stays bounded. Constants are the SAME
+  // exports the Craft step passes (PLANET_GMS / PLANET_RADII_WU).
+  it('planet pull stays ≪ star pull across the mission shells (150/260/340 wu)', () => {
+    const shells = [150, 260, 340]; // Draugr / Poltergeist / Phobetor orbit shells
+    const craft = new Vector3();
+    const starOnly = new Vector3();
+    const withPlanets = new Vector3();
+    for (let i = 0; i < shells.length; i++) {
+      const r = shells[i];
+      craft.set(r, 0, 0); // craft on the shell at distance r from the star
+      // Planet placed so the craft just clears its soft radius — the clamped worst
+      // case (max planet pull). It pulls +x (away from the star) → the planet-only
+      // contribution is the x-delta vs star-only.
+      const planetPos = new Vector3(r + PLANET_RADII_WU[i], 0, 0);
+      gravityAccel(craft.clone(), starOnly);
+      gravityAccelWithPlanets(craft.clone(), withPlanets, [planetPos], [PLANET_GMS[i]], [PLANET_RADII_WU[i]]);
+      const planetMag = Math.abs(withPlanets.x - starOnly.x);
+      const starMag = starOnly.length(); // GM_SIM / r²
+      // Worst case Phobetor @ r=340 ≈ 3.9% — well under 5% (planets never dominate).
+      expect(planetMag).toBeLessThan(starMag * 0.05);
+    }
+  });
+
+  it('r=260 circular orbit under planet perturbation stays bounded over 60s', () => {
+    // m3 "Close Pass" region (Poltergeist shell). Planets parked on their shells
+    // along +Y (off the xz orbital plane → the craft never sits on one), so their
+    // tiny pull perturbs but can't collide/soft-clamp. Band mirrors the star-only
+    // r=300 test ([285,315] / [27,33]) loosened for the perturbation + smaller r.
+    const dt = FIXED_DT;
+    const pos = new Vector3(260, 0, 0);
+    const vel = new Vector3(0, 0, Math.sqrt(GM_SIM / 260)); // v_circ ≈ 32.25 wu/s
+    const acc = new Vector3();
+    const positions = [
+      new Vector3(0, 150, 0),
+      new Vector3(0, 260, 0),
+      new Vector3(0, 340, 0),
+    ];
+    for (let i = 0; i < 3600; i++) { // 60s @ 60Hz
+      gravityAccelWithPlanets(pos, acc, positions, PLANET_GMS, PLANET_RADII_WU);
+      vel.addScaledVector(acc, dt);
+      pos.addScaledVector(vel, dt);
+    }
+    const r = pos.length();
+    const speed = vel.length();
+    expect(r).toBeGreaterThan(245);
+    expect(r).toBeLessThan(275);
+    expect(speed).toBeGreaterThan(28);
+    expect(speed).toBeLessThan(36);
   });
 });

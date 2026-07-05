@@ -2,19 +2,24 @@
 // <ResultCard> (game/ResultCard.tsx — a presentational module we do NOT edit)
 // when the courier FSM reaches 'delivered', scores the run via game/score.ts,
 // and wires dismiss (Escape + button) with a focus-visible ring — the a11y floor
-// ResultCard itself doesn't carry.
+// ResultCard itself doesn't carry. Also surfaces a brief non-modal failure banner
+// (finding 7) so a fuel/destroyed failure isn't silent.
 //
-// Subscription discipline: we read ONLY status + missionId (transition-only
-// slices). The 60Hz step() set() mutates fuel/timeS every tick, so subscribing to
-// those would re-render this 60×/s; instead they're read via getState() at render
-// time, which is safe because fuel/timeS are frozen once 'delivered' is reached
-// and this only re-renders on a status/missionId transition.
+// a11y (finding 5): the delivered dialog traps Tab within itself and restores
+// focus to the previously-focused element on dismiss; ResultCard carries
+// aria-modal="true".
+//
+// Subscription discipline: we read ONLY status + missionId + failReason
+// (transition-only slices). The 60Hz step() set() mutates fuel/timeS every tick,
+// so subscribing to those would re-render this 60×/s; instead they're read via
+// getState() at render time, which is safe because fuel/timeS are frozen once
+// 'delivered' is reached and this only re-renders on a status/missionId transition.
 //
 // Desktop-only mount (App ExperienceShell). Mobile never imports this → the
 // courier/score chunks stay unfetched on the mobile route (Task 14 invariant).
 
 import { useEffect, useRef, useState } from 'react';
-import { useCourierStore, missionById, computeScore } from '../game/courier';
+import { useCourierStore, missionById, computeScore, type FailReason } from '../game/courier';
 import { loadScores, saveScore } from '../game/score';
 import { ResultCard } from '../game/ResultCard';
 
@@ -23,19 +28,35 @@ const ACCENT = '#AFE3FF';
 // overlay so keyboard users see focus. Injected once via a <style> element.
 const FOCUS_CSS = `.nabhasa-result button:focus-visible{outline:2px solid ${ACCENT};outline-offset:3px;}`;
 
+const FAIL_MSG: Record<FailReason, string> = {
+  fuel: 'FUEL DEPLETED',
+  destroyed: 'TIDAL DESTRUCTION',
+};
+const FAIL_HOLD_MS = 1800; // banner visible before the FSM reset returns to idle
+
 export function MissionResult() {
   const status = useCourierStore((s) => s.status);
   const missionId = useCourierStore((s) => s.missionId);
+  const failReason = useCourierStore((s) => s.failReason);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const prevFocus = useRef<HTMLElement | null>(null);
   const [best, setBest] = useState(false);
+  const [showFail, setShowFail] = useState(false);
   const scoredFor = useRef<string | null>(null);
 
-  // Recover from a fuel/destroyed failure so the courier loop can't soft-lock:
-  // FSM reset from 'failed' returns to idle and retries the SAME mission
-  // (unlockedIndex unchanged). No result card — the spec scopes the card to
-  // delivery. (DEVIATION — see wiring notes.)
+  // Failure feedback (finding 7): the spec scopes the result card to delivery, so
+  // a fuel/destroyed failure was silent — the FSM reset immediately with no UI.
+  // Show a brief non-modal banner with the reason, THEN reset (returns to idle
+  // retrying the SAME mission; unlockedIndex unchanged). Destruction still fires
+  // the white veil via Craft; this adds the fuel-out case + the reason line.
   useEffect(() => {
-    if (status === 'failed') useCourierStore.getState().reduce({ type: 'reset' });
+    if (status !== 'failed') return;
+    setShowFail(true);
+    const t = window.setTimeout(() => {
+      setShowFail(false);
+      useCourierStore.getState().reduce({ type: 'reset' });
+    }, FAIL_HOLD_MS);
+    return () => window.clearTimeout(t);
   }, [status]);
 
   const mission = missionId ? missionById(missionId) : undefined;
@@ -63,38 +84,86 @@ export function MissionResult() {
     if (!delivered) scoredFor.current = null;
   }, [delivered]);
 
-  // Dismiss (Escape + button) and move focus into the dialog for keyboard users.
+  // Dismiss (Escape) + Tab focus trap (finding 5). Move focus into the dialog on
+  // open, keep Tab inside it (wrap first↔last), and restore focus to the element
+  // that had it before on dismiss. Preserves the existing Escape-to-dismiss path.
   useEffect(() => {
     if (!delivered) return;
+    prevFocus.current = (document.activeElement as HTMLElement) ?? null;
+    const root = rootRef.current;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') useCourierStore.getState().reduce({ type: 'reset' });
+      if (e.key === 'Escape') {
+        useCourierStore.getState().reduce({ type: 'reset' });
+        return;
+      }
+      if (e.key !== 'Tab' || !root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     // Focus the dismiss button ("Continue flight" = last button) so Enter dismisses
     // immediately; Share is reachable via Tab.
     const t = window.setTimeout(
-      () => (rootRef.current?.querySelector('button:last-of-type') as HTMLButtonElement | null)?.focus(),
+      () => (root?.querySelector('button:last-of-type') as HTMLButtonElement | null)?.focus(),
       0,
     );
     return () => {
       window.removeEventListener('keydown', onKey);
       window.clearTimeout(t);
+      // Hand focus back to whatever had it before the dialog opened.
+      prevFocus.current?.focus?.();
     };
   }, [delivered]);
 
-  if (!delivered || !mission) return null;
-
   return (
-    <div className="nabhasa-result" ref={rootRef}>
-      <style>{FOCUS_CSS}</style>
-      <ResultCard
-        mission={mission}
-        fuelFrac={fuelFrac}
-        timeS={c.timeS}
-        score={score}
-        best={best}
-        onDismiss={() => useCourierStore.getState().reduce({ type: 'reset' })}
-      />
-    </div>
+    <>
+      {showFail && failReason && (
+        <div
+          role="status"
+          aria-live="assertive"
+          style={{
+            position: 'fixed',
+            top: '18vh',
+            left: 0,
+            right: 0,
+            textAlign: 'center',
+            color: ACCENT, // --star-hot — the one accent
+            fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+            fontSize: 18,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            pointerEvents: 'none',
+            zIndex: 60,
+            textShadow: '0 0 18px rgba(175,227,255,0.5)',
+          }}
+        >
+          {FAIL_MSG[failReason]} — MISSION FAILED
+        </div>
+      )}
+      {!delivered || !mission ? null : (
+        <div className="nabhasa-result" ref={rootRef}>
+          <style>{FOCUS_CSS}</style>
+          <ResultCard
+            mission={mission}
+            fuelFrac={fuelFrac}
+            timeS={c.timeS}
+            score={score}
+            best={best}
+            onDismiss={() => useCourierStore.getState().reduce({ type: 'reset' })}
+          />
+        </div>
+      )}
+    </>
   );
 }

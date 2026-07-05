@@ -9,11 +9,13 @@
 // tuned sim constants. The two sources stay separate (spec Task 4 invariant).
 
 import { create } from 'zustand';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { craftState } from '../flight/craftState';
 import { useCourierStore, missionById } from '../game/courier'; // spec Task 12 — mission label in the HUD
 import { beamState } from '../signatures/PulsarBeams';
+import { subscribeSwarmFlare } from '../signatures/DysonSwarm';
+import { getActiveSonify, setActiveSonify, noop } from '../audio/sonify';
 import { useRegionStore, type RegionId } from '../world/regions';
 import { timeDilation, tidalAccel, surfaceGravity } from './physics-data';
 import { SPIN_DISPLAY_SLOWDOWN } from '../world/scale';
@@ -70,6 +72,21 @@ export const useHudStore = create<HudState>((set) => ({
 // inside <NabhasaCanvas> (App.tsx) like <PerfLogger/>.
 export function HudSampler() {
   const acc = useRef(0);
+  const flare = useRef(false); // swarm flare rising-edge → desktop sonify (consumed @10Hz)
+  // Desktop sonify lifecycle (Task 9, finding 1): the handle is created in
+  // App.engageAudio (the ENGAGE gesture); this loop drives update() at 10Hz with
+  // rKm + beam alignment + flare, and releases the source nodes on unmount. No
+  // React setState here — getState()/set on external stores + the sonify handle.
+  useEffect(() => {
+    const unsub = subscribeSwarmFlare(() => {
+      flare.current = true;
+    });
+    return () => {
+      unsub();
+      getActiveSonify().dispose();
+      setActiveSonify(noop);
+    };
+  }, []);
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 1 / 30); // clamp per Global Constraints
     acc.current += dt;
@@ -86,6 +103,12 @@ export function HudSampler() {
       beamTransit: beamState.transit,
       killFlash: craftState.killFlash,
     });
+
+    // Desktop sonify update (10Hz contract): roar ∝ 1/rKm, pulse ∝ beam alignment,
+    // flare rising-edge hit. rKm + beamState.transit already computed above; the
+    // handle is noop until engageAudio arms it → safe pre-gesture.
+    getActiveSonify().update({ rKm, beamAlignment: beamState.transit, flare: flare.current });
+    flare.current = false;
 
     // Courier mission line (spec Task 12): active-mission label + live distance
     // to the objective beacon (1 wu = 1 km). Uses the existing setMission pattern

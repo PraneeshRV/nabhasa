@@ -38,7 +38,7 @@ import { DysonSwarm, subscribeSwarmFlare } from '../signatures/DysonSwarm';
 import { craftState } from '../flight/craftState';
 import { regionAt, type RegionId } from '../world/regions';
 import { timeDilation } from '../hud/physics-data';
-import { initAudio, setMuted } from '../audio/engine';
+import { initAudio, setMuted, getAudio } from '../audio/engine';
 import { startAmbient } from '../audio/ambient';
 import { initSonify, type SonifyHandle } from '../audio/sonify';
 
@@ -116,18 +116,24 @@ function FilmCamera({ progress, hudEl, railEl, sound }: FilmCameraProps) {
   // Audio: built on first guarantee of a user gesture. The collapse ENGAGE click
   // is one, but CollapsePreloader defers onEnter 650 ms (outside the gesture
   // window for some browsers' resume()), so the canvas's first pointerdown is
-  // the canonical arm. Best-effort on mount if sound was chosen.
-  const audioArmed = useRef(false);
+  // the canonical arm. armAudio is idempotent and re-attempts ctx.resume() each
+  // call: the best-effort mount-time arm leaves the ctx suspended (no gesture),
+  // and the pointerdown arm lands inside a gesture → flips it to 'running'.
   const sonifyH = useRef<SonifyHandle | null>(null);
   const flare = useRef(false); // swarm flare rising-edge → sonify (consumed @10Hz)
 
   const armAudio = useCallback(() => {
-    if (audioArmed.current) return;
-    audioArmed.current = true;
-    initAudio();
+    initAudio(); // idempotent
+    // Re-attempt resume each call (NOT an early-return on a boolean): the
+    // mount-time arm created the ctx suspended; the pointerdown gesture here is
+    // what unlocks it. No-op once ctx.state === 'running'.
+    const ctx = getAudio()?.ctx;
+    if (ctx && ctx.state !== 'running') void ctx.resume();
     startAmbient();
     setMuted(!sound); // "sound on" → unmute; "enter silent" → stays muted
-    sonifyH.current = initSonify({ getSpinPhase: () => starSpinAngle(starClock.t) });
+    if (!sonifyH.current) {
+      sonifyH.current = initSonify({ getSpinPhase: () => starSpinAngle(starClock.t) });
+    }
   }, [sound]);
 
   useEffect(() => {
@@ -293,7 +299,7 @@ export function FlythroughFilm({ tier, sound }: { tier: Tier; sound: boolean }) 
       onPointerCancel={endDrag}
     >
       <NabhasaCanvas tier={tier}>
-        {/* Sky owner = lensing (webgpu-low/webgl2 both 'half'); Starfield would
+        {/* Sky owner = lensing (every lensing tier is 'full'); Starfield would
             only own it on 'off'. Same sky-ownership rule as MainExperience. */}
         {QUALITY[tier].lensing === 'off' ? null : <LensingSkybox tier={tier} />}
         <NeutronStar />

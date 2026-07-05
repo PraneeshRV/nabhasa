@@ -14,12 +14,17 @@ import { CollapsePreloader } from './signatures/CollapsePreloader';
 import { StaticExperience } from './fallback/StaticExperience';
 import { initAudio, setMuted } from './audio/engine';
 import { startAmbient } from './audio/ambient';
-import { initSonify } from './audio/sonify';
-import { Telemetry } from './hud/Telemetry';
-import { HudSampler } from './hud/hudStore';
-import { MissionResult } from './hud/MissionResult'; // spec Task 12 — delivered-mission overlay (desktop)
-import { Beacons } from './signatures/Beacons'; // spec Task 12 — active-mission beacon pillars (desktop)
-import { useCourierStore } from './game/courier'; // pure FSM — tidal-death fail dispatch below
+import { initSonify, setActiveSonify } from './audio/sonify';
+// Task 14 gate (finding 3): game/courier + score + ResultCard + hudStore + Beacons
+// must NOT load on the mobile route. These were statically imported → they landed
+// in the entry chunk fetched on EVERY route (incl. mobile). React.lazy splits them
+// into the desktop chunk (rendered only inside ExperienceShell / MainExperience,
+// desktop after ENGAGE). useCourierStore is a store (not a component) → loaded via
+// dynamic import() at the onKill call site below.
+const Telemetry = lazy(() => import('./hud/Telemetry').then((m) => ({ default: m.Telemetry })));
+const HudSampler = lazy(() => import('./hud/hudStore').then((m) => ({ default: m.HudSampler })));
+const MissionResult = lazy(() => import('./hud/MissionResult').then((m) => ({ default: m.MissionResult })));
+const Beacons = lazy(() => import('./signatures/Beacons').then((m) => ({ default: m.Beacons })));
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
@@ -57,13 +62,20 @@ function MainExperience({ tier }: { tier: Tier }) {
       <LichPlanets />
       <PulsarBeams tier={tier} />
       <DysonSwarm tier={tier} />
-      <Beacons />
       <Suspense fallback={null}>
-        <Craft onKill={() => useCourierStore.getState().reduce({ type: 'fail', reason: 'destroyed' })} />
+        <Beacons />
+        <Craft
+          onKill={() =>
+            // Dynamic import keeps game/courier out of the entry chunk (Task 14).
+            import('./game/courier').then((m) =>
+              m.useCourierStore.getState().reduce({ type: 'fail', reason: 'destroyed' }),
+            )
+          }
+        />
+        <HudSampler />
       </Suspense>
       <CameraRig />
       <PerfLogger />
-      <HudSampler />
     </NabhasaCanvas>
   );
 }
@@ -106,8 +118,9 @@ function useRapierWarm(): boolean {
 // CollapsePreloader fires it synchronously from the gesture, NOT from the delayed
 // (650ms setTimeout) scene swap. Guards double-init: initAudio is idempotent and
 // startAmbient has its own guard, but initSonify is not — a second call would stack
-// a second pulse tone. initSonify's handle is left for Task 9's update loop; its
-// base-gain heartbeat plays as soon as it's armed.
+// a second pulse tone. The handle is stashed in the sonify active-registry
+// (sonify.ts) so HudSampler's 10Hz tick drives update() (Task 9 loop, finding 1);
+// its base-gain heartbeat plays as soon as it's armed.
 let audioEngaged = false;
 function engageAudio() {
   if (audioEngaged) return;
@@ -115,7 +128,7 @@ function engageAudio() {
   initAudio();
   setMuted(false); // master defaults muted; "sound on" unmutes
   startAmbient();
-  initSonify({ getSpinPhase: () => starSpinAngle(starClock.t) });
+  setActiveSonify(initSonify({ getSpinPhase: () => starSpinAngle(starClock.t) }));
 }
 
 // Live tiers: collapse gate → main scene. The preloader owns the only active
@@ -126,8 +139,12 @@ function ExperienceShell({ tier }: { tier: Tier }) {
   return (
     <>
       {entered && <MainExperience tier={tier} />}
-      {entered && <Telemetry />}
-      {entered && <MissionResult />}
+      {entered && (
+        <Suspense fallback={null}>
+          <Telemetry />
+          <MissionResult />
+        </Suspense>
+      )}
       {!entered && (
         <CollapsePreloader
           tier={tier}
