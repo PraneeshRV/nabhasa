@@ -57,7 +57,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { SWARM_CENTER, SWARM_RADIUS } from '../world/scale';
 import { QUALITY } from '../core/quality';
 import type { Tier } from '../core/tiers';
-import { craftState } from '../flight/Craft';
+import { craftState } from '../flight/craftState'; // leaf — avoids pulling Rapier (Task 14 mobile chunk split)
 import { assemblyParam, flareIntervalS } from './dysonMath';
 
 // ── Tunables (leva-mountable on a future /dev/swarm; committed = art direction) ─

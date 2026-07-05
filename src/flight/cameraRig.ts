@@ -8,7 +8,7 @@
 import { useRef, type MutableRefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3, PerspectiveCamera } from 'three';
-import { craftState } from './Craft';
+import { craftState } from './craftState'; // leaf — same singleton, no Rapier pull
 
 const LAMBDA_POS = 4; // spec: position approach rate
 const LAMBDA_LOOK = 6; // spec: look-at approach rate

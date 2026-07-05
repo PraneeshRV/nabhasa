@@ -23,7 +23,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, PointLight, Quaternion, Vector3 } from 'three';
 import { starClock, starSpinAngle } from '../world/NeutronStar';
-import { craftState } from '../flight/Craft';
+import { craftState } from '../flight/craftState'; // leaf — avoids pulling Rapier (Task 14 mobile chunk split)
 import { createBeamMaterial, BEAM_LENGTH, BEAM_RADIUS, beamUniforms } from '../shaders/pulsarBeam';
 import { QUALITY } from '../core/quality';
 import type { Tier } from '../core/tiers';

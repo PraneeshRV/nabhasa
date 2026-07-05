@@ -29,6 +29,12 @@ const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Elemen
 // Craft.tsx has no default export → unwrap the named export for React.lazy.
 const Craft = lazy(() => import('./flight/Craft').then((m) => ({ default: m.Craft })));
 
+// Mobile designed-down film (Task 14): own chunk. Imports the world signatures
+// (now decoupled from flight/Craft via the craftState leaf) but NOT flight/Craft,
+// flight/cameraRig, or game/* → Rapier + courier/score chunks are never fetched
+// on the mobile route (spec gate: verify in DevTools network tab).
+const FlythroughFilm = lazy(() => import('./mobile/FlythroughFilm').then((m) => ({ default: m.FlythroughFilm })));
+
 function PerfLogger() {
   usePerfProbe('main');
   return null;
@@ -133,6 +139,44 @@ function CollapseHarness({ tier }: { tier: Tier }) {
   return <CollapsePreloader tier={tier} ready onEnter={() => {}} dev />;
 }
 
+// Mobile film route detection (spec Task 14): coarse pointer + narrow viewport.
+function isCoarseMobile(): boolean {
+  return matchMedia('(pointer: coarse)').matches && window.innerWidth < 900;
+}
+
+// Spec Task 14: coarse pointer caps at webgpu-low-or-below (DPR ≤1.5, reduced
+// particle/swarm counts via QUALITY). detectTier already returns webgpu-low for
+// coarse pointers; this only guards a coarse+wide+desktop-GPU edge case.
+function mobileTier(t: Tier): Tier {
+  return t === 'webgpu-high' ? 'webgpu-low' : t;
+}
+
+// Mobile gate: the collapse preloader (reveal #1, unchanged signature) doubles
+// as the WebAudio unlock gesture, then the designed-down fly-through carries
+// reveals #2–4 (lensing orbit → beam transit → swarm assembly). No
+// useRapierWarm here — the Rapier/game chunk must stay unfetched on mobile.
+function FilmShell({ tier }: { tier: Tier }) {
+  const [entered, setEntered] = useState(false);
+  const [sound, setSound] = useState(false);
+  if (!entered) {
+    return (
+      <CollapsePreloader
+        tier={tier}
+        ready
+        onEnter={(s: boolean) => {
+          setSound(s);
+          setEntered(true);
+        }}
+      />
+    );
+  }
+  return (
+    <Suspense fallback={null}>
+      <FlythroughFilm tier={tier} sound={sound} />
+    </Suspense>
+  );
+}
+
 export function App() {
   // Top-level so hooks run unconditionally regardless of dev routing below.
   const tier = useTier();
@@ -151,6 +195,9 @@ export function App() {
   }
 
   if (!tier) return null;
-  if (tier === 'static') return <StaticExperience />; // reduced-motion: no-motion fallback (Task 15 stub)
+  if (tier === 'static') return <StaticExperience />; // reduced-motion: no-motion fallback
+  // Mobile designed-down cut (Task 14). Runs AFTER the static check so a
+  // reduced-motion mobile user still gets the static experience, not the film.
+  if (isCoarseMobile()) return <FilmShell tier={mobileTier(tier)} />;
   return <ExperienceShell tier={tier} />;
 }

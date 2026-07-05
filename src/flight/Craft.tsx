@@ -32,6 +32,7 @@ import { input, pollGamepad } from './input';
 import { gravityAccel } from './gravity';
 import { FIXED_DT, KILL_RADIUS, PLAY_RADIUS } from '../world/scale';
 import { regionAt, useRegionStore } from '../world/regions';
+import { craftState } from './craftState'; // leaf — same singleton, no Rapier pull
 
 // ---- feel tunables (one place; adjust during the manual session) -------------
 const THRUST_ACCEL = 40; // wu/s² max linear (spec); boost multiplies by BOOST_MUL
@@ -50,27 +51,12 @@ const INERTIA_OVER_MASS = (2 / 5) * BALL_RADIUS * BALL_RADIUS; // I/m, given r
 // FIXED_DT=1/60 (finding 9). Post/audio/HUD select from useRegionStore.
 const REGION_PUSH_EVERY = 6;
 
-// ---- shared craft state (refs, NOT React state — zero per-frame setState) ----
-// cameraRig reads this each frame; hudStore (Task 13) samples rKm/speed @10Hz.
-export interface CraftState {
-  pos: Vector3;
-  vel: Vector3;
-  forward: Vector3; // unit, local -Z in world space
-  speed: number; // wu/s
-  fuel: number; // 0..1; drain wired by Task 12 (missions)
-  killFlash: number; // 0..1 envelope for the 600ms white-in (DOM overlay reads this)
-}
-export const craftState: CraftState = {
-  pos: new Vector3(...RESPAWN_POS),
-  vel: new Vector3(),
-  forward: new Vector3(0, 0, -1),
-  speed: 0,
-  fuel: 1,
-  killFlash: 0,
-};
-export function useCraftState(): CraftState {
-  return craftState;
-}
+// ---- shared craft state: defined in ./craftState (leaf, no Rapier import) ----
+// Kept there so PulsarBeams/DysonSwarm/cameraRig (and the mobile film) can read
+// the SAME singleton without dragging @react-three/rapier into their chunks
+// (Task 14 mobile invariant). This module owns the WRITE side (Rapier body →
+// craftState each physics step); the leaf owns the shape + identity. Imported at
+// the top of this file; see the comment there.
 
 // ---- frame-loop scratch (never allocate in useFrame) -------------------------
 const _grav = new Vector3();
