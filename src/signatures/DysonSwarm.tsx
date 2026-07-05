@@ -128,7 +128,7 @@ const tileCenter = /* @__PURE__ */ Fn(([iid]: [any]) => {
 // instanceIndex cross-stage, the one API-surface risk kept to a single standard
 // built-in consumed in its home stage.
 const swarmPosition = /* @__PURE__ */ Fn(() => {
-  const iid = instanceIndex;
+  const iid = float(instanceIndex); // GLSL: uint builtin must be floated before float math
   const radial = slotDirPost(iid); // outward
   const normal = radial.negate(); // tiles face INWARD (toward node center / star)
   const center = tileCenter(iid);
@@ -150,7 +150,7 @@ const swarmPosition = /* @__PURE__ */ Fn(() => {
 
 // normalNode: inward radial. Drives star PBR specular → the glint; as tiles slot +
 // orbit, normals sweep → the "glitter wave" as assembly completes.
-const swarmNormal = /* @__PURE__ */ Fn(() => slotDirPost(instanceIndex).negate());
+const swarmNormal = /* @__PURE__ */ Fn(() => slotDirPost(float(instanceIndex)).negate());
 
 // emissiveNode (fragment, positionWorld only): --irradiated rim on star-facing
 // faces + a cool self-floor so dead-side tiles still read with bloom nearly off.
