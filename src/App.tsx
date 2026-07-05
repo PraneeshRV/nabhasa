@@ -5,6 +5,7 @@ import { detectTier, type Tier } from './core/tiers';
 import { QUALITY } from './core/quality';
 import { Starfield } from './world/Starfield';
 import { NeutronStar, starSpinAngle, starClock } from './world/NeutronStar';
+import { LichPlanets } from './world/LichPlanets';
 import { PulsarBeams } from './signatures/PulsarBeams';
 import { DysonSwarm } from './signatures/DysonSwarm';
 import { CameraRig } from './flight/cameraRig';
@@ -50,6 +51,7 @@ function MainExperience({ tier }: { tier: Tier }) {
     <NabhasaCanvas tier={tier}>
       {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
       <NeutronStar />
+      <LichPlanets />
       <PulsarBeams tier={tier} />
       <DysonSwarm tier={tier} />
       <Suspense fallback={null}>

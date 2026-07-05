@@ -60,6 +60,24 @@ export const FUEL_DRAIN_RATE = 0.01;
 export const OFFER_RADIUS = 40;
 export const DELIVER_RADIUS = 25;
 
+// ---- planet-anchored waypoints (Amendment A1) -------------------------------
+// Inner-system beacons sit ON the Lich planets' compressed orbit shells at
+// fixed azimuths — deliveries route Draugr → Poltergeist → Phobetor. SNAPSHOT
+// constants (not live positions): the FSM stays pure + node-testable, the
+// orbiting body is decorative, the beacon marks the orbit. Radii mirror
+// planets.ts LICH_SYSTEM orbitWu (Draugr 150 / Poltergeist 260 / Phobetor 340),
+// duplicated here because courier is a three-free pure module (planets.ts pulls
+// three/tsl). m1.from stays the spawn point (test-locked); m4.to (beam) + m5
+// (swarm) stay hand-authored — not planet-sensible.
+const shell = (r: number, az: number, y = 0): Vec3 => [
+  Math.round(r * Math.cos(az)),
+  y,
+  Math.round(r * Math.sin(az)),
+];
+const W_DRAUGR = shell(150, 0.5, 40); // ≈ [132,40,72]
+const W_POLTERGEIST = shell(260, Math.PI + 0.2, 0); // far side — across the star
+const W_PHOBETOR = shell(340, Math.PI / 2 - 0.2, 80);
+
 // ---- 5 authored missions, escalating (straight → single assist → tight
 // periapsis → beam-transit → swarm-threading finale) -------------------------
 // from/to CHAIN: each mission's `to` is the next mission's `from`, and m1.from
@@ -71,30 +89,30 @@ export const MISSIONS: readonly Mission[] = [
     id: 'm1-straight',
     name: 'Outbound Relay',
     from: [600, 80, 0], // == RESPAWN_POS (Craft.tsx): offered on first step
-    to: [400, 60, 200],
+    to: W_DRAUGR, // onto Draugr's orbit shell
     fuelBudget: 0.7,
     par: 45,
   },
   {
     id: 'm2-assist',
     name: 'Gravity Handoff',
-    from: [400, 60, 200],
-    to: [-300, 40, 0], // across the star — a single assist pays off
+    from: W_DRAUGR,
+    to: W_POLTERGEIST, // across the star — a single assist pays off
     fuelBudget: 0.55,
     par: 70,
   },
   {
     id: 'm3-periapsis',
     name: 'Close Pass',
-    from: [-300, 40, 0],
-    to: [120, 200, -120], // steep dive + tight periapsis slingshot
+    from: W_POLTERGEIST,
+    to: W_PHOBETOR, // steep dive + tight periapsis slingshot en route
     fuelBudget: 0.4,
     par: 80,
   },
   {
     id: 'm4-beam',
     name: 'Beam Transit Run',
-    from: [120, 200, -120],
+    from: W_PHOBETOR,
     to: [700, -120, 300], // crosses the pulsar beam azimuth (radiation transit)
     fuelBudget: 0.45,
     par: 90,

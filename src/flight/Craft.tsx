@@ -29,10 +29,11 @@ import {
 import { Vector3, Quaternion, Mesh, MeshBasicMaterial } from 'three';
 import gsap from 'gsap';
 import { input, pollGamepad } from './input';
-import { gravityAccel } from './gravity';
+import { gravityAccelWithPlanets, PLANET_GMS, PLANET_RADII_WU } from './gravity';
 import { FIXED_DT, KILL_RADIUS, PLAY_RADIUS } from '../world/scale';
 import { regionAt, useRegionStore } from '../world/regions';
 import { craftState } from './craftState'; // leaf — same singleton, no Rapier pull
+import { getPlanetPositions } from '../world/LichPlanets'; // leaf singleton — planet perturbation (A1)
 
 // ---- feel tunables (one place; adjust during the manual session) -------------
 const THRUST_ACCEL = 40; // wu/s² max linear (spec); boost multiplies by BOOST_MUL
@@ -116,8 +117,8 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
     _up.copy(UP_LOCAL).applyQuaternion(_quat);
     craftState.forward.copy(_fwd);
 
-    // accumulate acceleration (gravity + linear thrust)
-    gravityAccel(pos, _grav);
+    // accumulate acceleration (gravity [star + planet perturbation, A1] + thrust)
+    gravityAccelWithPlanets(pos, _grav, getPlanetPositions(), PLANET_GMS, PLANET_RADII_WU);
     const ta = THRUST_ACCEL * (input.boost ? BOOST_MUL : 1);
     _force.set(0, 0, 0)
       .addScaledVector(_fwd, input.thrust * ta)

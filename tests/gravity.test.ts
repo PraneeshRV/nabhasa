@@ -3,7 +3,7 @@
 // oracle. Exact tolerance bands per spec.
 import { describe, it, expect } from 'vitest';
 import { Vector3 } from 'three';
-import { gravityAccel } from '../src/flight/gravity';
+import { gravityAccel, gravityAccelWithPlanets } from '../src/flight/gravity';
 import { GM_SIM, KILL_RADIUS, FIXED_DT } from '../src/world/scale';
 
 describe('gravityAccel', () => {
@@ -70,5 +70,32 @@ describe('orbit stability (semi-implicit Euler @ FIXED_DT, mirrors Rapier step)'
       pos.addScaledVector(vel, dt);
     }
     expect(pos.length()).toBeLessThan(300);
+  });
+});
+
+describe('gravityAccelWithPlanets (Amendment A1)', () => {
+  it('with empty planet arrays is bit-identical to star-only gravityAccel', () => {
+    // The star path is reused verbatim then the planet loop runs zero times, so
+    // zero planets ⇒ no change. Locks the spec invariant "star-only path stays
+    // exact" (orbit-test tolerance 1e-6) against future edits.
+    const pos = new Vector3(300, 12, -7);
+    const starOnly = gravityAccel(pos.clone(), new Vector3());
+    const withEmpty = gravityAccelWithPlanets(pos.clone(), new Vector3(), [], [], []);
+    expect(withEmpty.distanceTo(starOnly)).toBeCloseTo(0, 12);
+  });
+
+  it('adds a planet pull toward the planet (clamped inverse-square)', () => {
+    // Craft at origin (star guard ⇒ 0), planet at +x: net accel points +x and
+    // |a| = GM/r² = 200000 / 1000² = 0.2 wu/s². Toward the body, not the star.
+    const a = gravityAccelWithPlanets(
+      new Vector3(0, 0, 0),
+      new Vector3(),
+      [new Vector3(1000, 0, 0)],
+      [200000],
+      [10],
+    );
+    expect(a.x).toBeCloseTo(0.2, 6);
+    expect(a.y).toBeCloseTo(0, 12);
+    expect(a.z).toBeCloseTo(0, 12);
   });
 });
