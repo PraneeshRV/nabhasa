@@ -11,7 +11,7 @@
 import { create } from 'zustand';
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { craftState } from '../flight/Craft';
+import { craftState } from '../flight/craftState';
 import { beamState } from '../signatures/PulsarBeams';
 import { useRegionStore, type RegionId } from '../world/regions';
 import { timeDilation, tidalAccel, surfaceGravity } from './physics-data';

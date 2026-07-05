@@ -163,10 +163,8 @@ function FilmShell({ tier }: { tier: Tier }) {
       <CollapsePreloader
         tier={tier}
         ready
-        onEnter={(s: boolean) => {
-          setSound(s);
-          setEntered(true);
-        }}
+        onEnter={() => setEntered(true)}
+        onSoundUnlock={() => setSound(true)}
       />
     );
   }
