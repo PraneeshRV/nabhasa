@@ -1,0 +1,201 @@
+// Starfield — spec Task 5. Two jobs:
+//   1. LIVE scene: instanced point-sprites (one <points> draw call) with a TSL
+//      twinkle, plus a dim FBM nebula backplate. Cool white-blue stars only —
+//      the neutron star owns the single hot accent, distant stars stay ambient.
+//   2. CUBEMAKE: bake the starfield+nebula ONCE into a CubeTexture exported as
+//      getStarfieldCube(). The lensing shader (Task 7) samples this along bent
+//      rays — instance-rendered stars can't be gravitationally deflected, so the
+//      bake is how lensing sees our sky. Lensing's procedural skyColor is the
+//      fallback until this bake lands / on the static tier (returns null).
+//
+// ASSUMPTION (gate-verified by conductor probe): three r185 WebGPURenderer
+// supports CubeCamera.update(renderer, scene) into a CubeRenderTarget — the
+// unified renderer interface. If the gate finds a backend cubemap quirk, this is
+// the place to look.
+
+import { useEffect, useMemo } from 'react';
+import { useThree } from '@react-three/fiber';
+import {
+  Fn,
+  vec3,
+  float,
+  fract,
+  dot,
+  sin,
+  pow,
+  floor,
+  length,
+  smoothstep,
+  step,
+  normalize,
+  time,
+  attribute,
+  vertexColor,
+  positionLocal,
+} from 'three/tsl';
+import { PointsNodeMaterial, MeshBasicNodeMaterial } from 'three/webgpu';
+import {
+  BackSide,
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  CubeCamera,
+  CubeRenderTarget,
+  Mesh,
+  NoToneMapping,
+  Scene,
+  SphereGeometry,
+} from 'three/webgpu';
+import type { CubeTexture } from 'three/webgpu';
+import type { Tier } from '../core/tiers';
+import { createNebulaMaterial } from '../shaders/nebula';
+
+// Spec says 30k stars; QUALITY owns particle/swarm counts but not starfield, so
+// this local table is the tier dial (static tier ships no canvas → 0).
+const STAR_COUNT: Record<Tier, number> = {
+  'webgpu-high': 30_000,
+  'webgpu-low': 16_000,
+  webgl2: 8_000,
+  static: 0,
+};
+
+const SHELL_NEAR = 2500;
+const SHELL_FAR = 6000;
+
+// ── Live point-sprite material ──────────────────────────────────────────────
+// Color per-star from the geometry `color` attribute (cool→white bias); twinkle
+// is a time-driven sin keyed off a per-star phase attribute.
+function createStarPointsMaterial() {
+  const mat = new PointsNodeMaterial();
+  mat.size = 2.5; // ponytail: uniform size; per-point sizeNode deferred (API risk, not needed at this scale)
+  mat.sizeAttenuation = true;
+  const phase = attribute('aPhase') as unknown as ReturnType<typeof float>; // @types/three TSL gap: AttributeNode lacks operator exts
+  const twinkle = sin(time.mul(2.0).add(phase)).mul(0.35).add(0.65); // [0.30, 1.00]
+  mat.colorNode = vertexColor().mul(twinkle);
+  mat.depthWrite = false;
+  return mat;
+}
+
+function buildStarGeometry(count: number): BufferGeometry {
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const phases = new Float32Array(count);
+  const cool = new Color('#cfe0ff');
+  const white = new Color('#ffffff');
+  const c = new Color();
+  for (let i = 0; i < count; i++) {
+    // uniform direction on the sphere
+    const u = Math.random() * Math.PI * 2;
+    const v = Math.acos(2 * Math.random() - 1);
+    const r = SHELL_NEAR + Math.random() * (SHELL_FAR - SHELL_NEAR);
+    const sv = Math.sin(v);
+    positions[i * 3] = r * sv * Math.cos(u);
+    positions[i * 3 + 1] = r * sv * Math.sin(u);
+    positions[i * 3 + 2] = r * Math.cos(v);
+    // mostly cool, a few warm-white — temp^3 biases hard toward cool
+    c.copy(cool).lerp(white, Math.pow(Math.random(), 3));
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+    phases[i] = Math.random() * Math.PI * 2;
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(positions, 3));
+  g.setAttribute('color', new BufferAttribute(colors, 3));
+  g.setAttribute('aPhase', new BufferAttribute(phases, 1));
+  return g;
+}
+
+// ── Bake star shader (procedural hash stars on an inward sphere) ────────────
+// Compact cell-jittered starfield for the cube bake. Two layers, rare bright.
+const hash31 = /* @__PURE__ */ Fn(([p]: [any]) =>
+  fract(sin(dot(p, vec3(127.1, 311.7, 74.7))).mul(43758.5453)),
+);
+
+const bakeStarLayer = /* @__PURE__ */ Fn(([dir, scale, thresh]: [any, any, any]) => {
+  const s = dir.mul(scale);
+  const id = floor(s);
+  const f = fract(s);
+  const h = hash31(id);
+  const jitter = vec3(
+    hash31(id.add(vec3(1.3, 7.7, 3.1))),
+    hash31(id.add(vec3(4.4, 2.2, 8.8))),
+    hash31(id.add(vec3(9.1, 5.5, 1.7))),
+  )
+    .mul(0.8)
+    .add(0.1);
+  const d = length(f.sub(jitter));
+  const core = smoothstep(float(0.12), float(0.0), d);
+  const mag = pow(h, 8.0);
+  return core.mul(step(thresh, h)).mul(mag.mul(3.0).add(0.4));
+});
+
+function createBakeStarMaterial() {
+  const mat = new MeshBasicNodeMaterial();
+  const dir = normalize(positionLocal);
+  const l1 = bakeStarLayer(dir, 64.0, 0.984);
+  const l2 = bakeStarLayer(dir.add(vec3(3.7, 1.9, 8.2)), 64.0 * 2.3, 0.988);
+  const cool = vec3(0.85, 0.92, 1.1);
+  const warm = vec3(1.1, 0.88, 0.72);
+  mat.colorNode = cool.mul(l1).add(warm.mul(l2).mul(0.6));
+  mat.side = BackSide;
+  mat.depthWrite = false;
+  mat.toneMapped = false; // baked raw; lensing tone-maps at composite
+  return mat;
+}
+
+// ── Cubemap export ──────────────────────────────────────────────────────────
+let starfieldCube: CubeTexture | null = null;
+export function getStarfieldCube(): CubeTexture | null {
+  return starfieldCube;
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
+export function Starfield({ tier }: { tier: Tier }) {
+  const { gl } = useThree();
+  const count = STAR_COUNT[tier];
+  const nebulaMat = useMemo(() => createNebulaMaterial(), []);
+  const pointsMat = useMemo(() => createStarPointsMaterial(), []);
+  const geo = useMemo(() => (count > 0 ? buildStarGeometry(count) : null), [count]);
+
+  useEffect(() => {
+    const dispose = () => {
+      nebulaMat.dispose();
+      pointsMat.dispose();
+      geo?.dispose();
+    };
+    return dispose;
+  }, [nebulaMat, pointsMat, geo]);
+
+  // One-shot cubemap bake (skip on static / if already baked this session).
+  useEffect(() => {
+    if (tier === 'static' || starfieldCube) return;
+    const rt = new CubeRenderTarget(512);
+    const cam = new CubeCamera(0.1, SHELL_FAR * 2, rt);
+    const scene = new Scene();
+    const nebSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createNebulaMaterial());
+    const starSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createBakeStarMaterial());
+    scene.add(nebSphere, starSphere);
+    const savedTM = gl.toneMapping;
+    (gl as any).toneMapping = NoToneMapping; // bake raw — lensing tone-maps downstream
+    cam.update(gl, scene);
+    (gl as any).toneMapping = savedTM;
+    starfieldCube = rt.texture;
+    // Drop bake-only GPU resources; the CubeTexture (rt.texture) stays live.
+    nebSphere.geometry.dispose();
+    starSphere.geometry.dispose();
+    nebSphere.material.dispose();
+    starSphere.material.dispose();
+  }, [gl, tier]);
+
+  if (count === 0) return null;
+
+  return (
+    <>
+      <points geometry={geo ?? undefined} material={pointsMat} frustumCulled={false} />
+      <mesh material={nebulaMat} frustumCulled={false}>
+        <sphereGeometry args={[SHELL_FAR, 32, 16]} />
+      </mesh>
+    </>
+  );
+}
