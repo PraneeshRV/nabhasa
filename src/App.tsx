@@ -4,6 +4,7 @@ import { usePerfProbe } from './core/perfProbe';
 import { detectTier, type Tier } from './core/tiers';
 import { Starfield } from './world/Starfield';
 import { NeutronStar } from './world/NeutronStar';
+import { PulsarBeams } from './signatures/PulsarBeams';
 import { CameraRig } from './flight/cameraRig';
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
@@ -39,6 +40,7 @@ function MainExperience() {
     <NabhasaCanvas tier={tier}>
       <Starfield tier={tier} />
       <NeutronStar />
+      <PulsarBeams tier={tier} />
       <Suspense fallback={null}>
         <Craft />
       </Suspense>
