@@ -6,6 +6,7 @@ import { QUALITY } from './core/quality';
 import { Starfield } from './world/Starfield';
 import { NeutronStar } from './world/NeutronStar';
 import { PulsarBeams } from './signatures/PulsarBeams';
+import { DysonSwarm } from './signatures/DysonSwarm';
 import { CameraRig } from './flight/cameraRig';
 import { LensingSkybox } from './signatures/LensingSkybox';
 import { CollapsePreloader } from './signatures/CollapsePreloader';
@@ -38,6 +39,7 @@ function MainExperience({ tier }: { tier: Tier }) {
       {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
       <NeutronStar />
       <PulsarBeams tier={tier} />
+      <DysonSwarm tier={tier} />
       <Suspense fallback={null}>
         <Craft />
       </Suspense>
