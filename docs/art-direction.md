@@ -20,7 +20,7 @@ Gargantua's discipline, not a synthwave poster.
 | `--star-mid` | `#5FA8D8` | Star limb, beam falloff, sonification-reactive glow. Derived from `--star-hot`, never used for UI. |
 | `--ui-cold` | `#8A93A6` | All HUD/telemetry text and rules. Desaturated slate — reads as instrumentation, never competes with the star. |
 | `--ui-dim` | `#3A4150` | Secondary HUD: rules, inactive labels, graph grids. |
-| `--irradiated` | `#C46A4A` | Planet dayside irradiation rim ONLY (Lich planets, existing `planets.ts` ember rim). Material color, never emissive >1, never UI. Not a second accent — it exists so the planets read as cooked rock, and it appears nowhere else. |
+| `--irradiated` | `#C46A4A` | Planet dayside irradiation rim ONLY (Lich planets, existing `planets.ts` ember rim). Material color, never emissive >1, never UI. Not a second accent — it exists so the planets read as cooked rock. One sanctioned exception (amended 2026-07-06): the collapse preloader’s pre-collapse supergiant may pass through the warm blackbody ramp — a dying red giant is physically warm; the ramp is transient and ends at `--star-hot`. |
 
 Rule: one hot accent (`--star-hot` family). If a new element "needs" its own color, it doesn't.
 
@@ -63,7 +63,7 @@ The star is the sole point light in the system (already true in `planets.ts` —
 ### Near-star (r < 300 wu, beams + kill radius)
 - Mood: violence. Everything is over-lit from one side, hard shadows, the HUD is the only calm thing.
 - Key: star, now dominant (exposure drops ~1 stop vs arrival — committed constant per region, not auto). Rim: beam sweep acts as a moving rim light when it passes. Ambient floor: `0.008` — shadows go nearly black.
-- Beam sweep 1:4 display rate; flash events stay <3Hz (photosensitivity, locked).
+- Beam sweep 1:2000 display rate (A1, PSR B1257+12); flash events stay <3Hz (photosensitivity, locked).
 
 ### Swarm (Dyson region, (900,0,0) r=250 wu)
 - Mood: industry among the dead — the one place with geometry density. Human-made regularity vs natural chaos.
