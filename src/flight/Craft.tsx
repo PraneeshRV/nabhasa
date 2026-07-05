@@ -2,38 +2,53 @@
 // (gravity.ts) + input thrust. THE FEEL TASK (spec Task 6): flight must be
 // assessed fun before Wave 2 merges.
 //
-// Force model: gravityAccel returns an ACCELERATION; we accumulate the frame's
-// total acceleration (gravity + thrust + boundary + brake) and commit it once
-// per R3F frame as addForce(a · mass). Rapier's addForce is persistent until
-// resetForces, so across the Physics accumulator's fixed sub-step(s) this frame
-// the same constant force applies at each sub-step — i.e. "addForce each step".
-// We resetForces+addForce every frame regardless, which is correct whether the
-// pipeline auto-resets forces or not (robust to that API uncertainty). With
-// timeStep=FIXED_DT at steady 60fps the accumulator runs one sub-step per
-// frame, matching the pure integrator in gravity.test.ts.
+// Force model: gravityAccel returns an ACCELERATION; we accumulate the step's
+// total acceleration (gravity + thrust + boundary + brake) and commit it in a
+// PER-PHYSICS-STEP hook (useBeforePhysicsStep) as addForce(a · mass). Spec
+// Task6 Step3 mandates "addForce each step"; committing forces in useFrame
+// decoupled them from the Physics accumulator (updateLoop="independent"), so a
+// lag spike held gravity stale across multiple sub-steps and high-refresh
+// recomputed it off-step. The hook re-runs before EVERY sub-step → matches the
+// pure FIXED_DT integrator in gravity.test.ts regardless of accumulator count.
+//
+// Angular: torque = I·α with solid-sphere I = (2/5)·m·r² (finding 3), NOT m·α.
 //
 // WASM-lazy: @react-three/rapier's WASM stays out of the first-paint bundle by
 // lazy-LOADING THIS MODULE at the mount point — App wires
 // `React.lazy(() => import('./flight/Craft'))`. The static rapier imports below
-// land in the flight chunk, never the main chunk. (Spec suggested lazying
-// <Physics> in-file; lazying the whole module is the same effect with cleaner
-// JSX — flagged in task notes.)
+// land in the flight chunk, never the main chunk.
 import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Physics, RigidBody, BallCollider, type RapierRigidBody } from '@react-three/rapier';
+import {
+  Physics,
+  RigidBody,
+  BallCollider,
+  useBeforePhysicsStep,
+  type RapierRigidBody,
+} from '@react-three/rapier';
 import { Vector3, Quaternion, Mesh, MeshBasicMaterial } from 'three';
 import gsap from 'gsap';
 import { input, pollGamepad } from './input';
 import { gravityAccel } from './gravity';
 import { FIXED_DT, KILL_RADIUS, PLAY_RADIUS } from '../world/scale';
+import { regionAt, useRegionStore } from '../world/regions';
 
 // ---- feel tunables (one place; adjust during the manual session) -------------
 const THRUST_ACCEL = 40; // wu/s² max linear (spec); boost multiplies by BOOST_MUL
 const BOOST_MUL = 2.5; // spec
-const ATTITUDE_TORQUE = 8; // rad/s² max angular — NOT in spec; feel knob
+const ATTITUDE_TORQUE = 8; // rad/s² max angular accel — NOT in spec; feel knob
 const BRAKE_DAMP = 0.3; // flight-assist retro-damping rate (1/s) when braking (spec value)
 const BOUNDARY_K = 6; // inward spring stiffness (wu/s² per wu beyond PLAY_RADIUS)
 const RESPAWN_POS: [number, number, number] = [600, 80, 0];
+
+// BallCollider radius (JSX arg below). Drives the solid-sphere moment of inertia
+// I = (2/5)·m·r² — addTorque wants torque = I·α, not m·α (finding 3).
+const BALL_RADIUS = 2;
+const INERTIA_OVER_MASS = (2 / 5) * BALL_RADIUS * BALL_RADIUS; // I/m, given r
+
+// Region streaming cadence: push regionAt(pos) every N physics steps ≈ 10Hz at
+// FIXED_DT=1/60 (finding 9). Post/audio/HUD select from useRegionStore.
+const REGION_PUSH_EVERY = 6;
 
 // ---- shared craft state (refs, NOT React state — zero per-frame setState) ----
 // cameraRig reads this each frame; hudStore (Task 13) samples rKm/speed @10Hz.
@@ -72,7 +87,18 @@ const RIGHT_LOCAL = new Vector3(1, 0, 0);
 const UP_LOCAL = new Vector3(0, 1, 0);
 
 export function Craft({ onKill }: { onKill?: () => void }) {
+  return (
+    <Physics gravity={[0, 0, 0]} timeStep={FIXED_DT} updateLoop="independent">
+      {/* useBeforePhysicsStep must run inside <Physics> context, so the body
+          lives in a child component. */}
+      <CraftBody onKill={onKill} />
+    </Physics>
+  );
+}
+
+function CraftBody({ onKill }: { onKill?: () => void }) {
   const rb = useRef<RapierRigidBody | null>(null);
+  const stepRef = useRef(0);
 
   useEffect(() => {
     const b = rb.current;
@@ -80,9 +106,14 @@ export function Craft({ onKill }: { onKill?: () => void }) {
     b.setTranslation({ x: RESPAWN_POS[0], y: RESPAWN_POS[1], z: RESPAWN_POS[2] }, true);
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    // finding 8: gsap tweens the persistent craftState singleton; kill on
+    // unmount so a mid-tween unmount can't keep mutating it.
+    return () => gsap.killTweensOf(craftState);
   }, []);
 
-  useFrame((_, _frameDt) => {
+  // Per-physics-step force/torque commit (finding 2). Runs before EVERY sub-step
+  // so gravity+thrust are never held stale across the accumulator.
+  useBeforePhysicsStep(() => {
     const b = rb.current;
     if (!b) return;
     pollGamepad();
@@ -123,38 +154,42 @@ export function Craft({ onKill }: { onKill?: () => void }) {
       _force.addScaledVector(_inward, BOUNDARY_K * (r - PLAY_RADIUS));
     }
 
-    // commit force (acceleration × mass) for this frame's sub-step(s)
+    // commit force (acceleration × mass) for this sub-step
     b.resetForces(true);
     b.addForce({ x: _force.x * mass, y: _force.y * mass, z: _force.z * mass }, true);
 
-    // attitude torque (pitch/yaw/roll) in the craft's LOCAL frame → world
+    // attitude torque = I·α (finding 3); _torque holds α in world frame
     _torque.set(input.pitch, input.yaw, input.roll).applyQuaternion(_quat).multiplyScalar(ATTITUDE_TORQUE);
     b.resetTorques(true);
-    b.addTorque({ x: _torque.x * mass, y: _torque.y * mass, z: _torque.z * mass }, true);
+    const ti = mass * INERTIA_OVER_MASS;
+    b.addTorque({ x: _torque.x * ti, y: _torque.y * ti, z: _torque.z * ti }, true);
+
+    // region streaming: regionAt(pos) → store, throttled ~10Hz (finding 9)
+    if (stepRef.current++ % REGION_PUSH_EVERY === 0) {
+      useRegionStore.getState().setRegion(regionAt(pos));
+    }
 
     // kill: tidal destruction + respawn
     if (r < KILL_RADIUS) respawn(b, onKill);
   });
 
   return (
-    <Physics gravity={[0, 0, 0]} timeStep={FIXED_DT} updateLoop="independent">
-      <RigidBody
-        ref={rb}
-        type="dynamic"
-        colliders={false}
-        linearDamping={0}
-        angularDamping={2}
-        ccd
-      >
-        <BallCollider args={[2]} />
-        {/* placeholder hull (hero glTF lands Task 13); nose toward local -Z */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[1.5, 5, 12]} />
-          <meshStandardMaterial color="#cfe4ff" emissive="#3a78c8" emissiveIntensity={0.4} metalness={0.6} roughness={0.4} />
-        </mesh>
-        <Thruster />
-      </RigidBody>
-    </Physics>
+    <RigidBody
+      ref={rb}
+      type="dynamic"
+      colliders={false}
+      linearDamping={0}
+      angularDamping={2}
+      ccd
+    >
+      <BallCollider args={[BALL_RADIUS]} />
+      {/* placeholder hull (hero glTF lands Task 13); nose toward local -Z */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[1.5, 5, 12]} />
+        <meshStandardMaterial color="#cfe4ff" emissive="#3a78c8" emissiveIntensity={0.4} metalness={0.6} roughness={0.4} />
+      </mesh>
+      <Thruster />
+    </RigidBody>
   );
 }
 

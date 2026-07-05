@@ -18,11 +18,17 @@ import { SPIN_DISPLAY_SLOWDOWN, STAR_RADIUS } from './scale';
 const P_B1257_S = 0.006219;
 export const STAR_SPIN_RAD_S = (2 * Math.PI) / (P_B1257_S * SPIN_DISPLAY_SLOWDOWN);
 
-// Pure phase fn — single source of spin phase. Beams (Task 10) and sonify
-// (Task 9) import this so all three read the same angle. Deterministic in t.
+// Pure phase fn — deterministic in t. Beams (Task 10) and sonify (Task 9) call
+// starSpinAngle(starClock.t) so every consumer phase-locks to the SAME clamped
+// clock the mesh uses; using state.clock.elapsedTime (unclamped, Canvas-epoch)
+// desyncs after the first lag spike → beams/audio drift off the visible mesh.
 export function starSpinAngle(t: number): number {
   return STAR_SPIN_RAD_S * t;
 }
+
+// Shared monotonic clock: the clamped-dt accumulator the mesh actually spins on.
+// Updated once/frame in NeutronStar's useFrame; consumers READ-ONLY. (finding 1)
+export const starClock = { t: 0 };
 
 const TILT_15 = (15 * Math.PI) / 180;
 
@@ -36,6 +42,7 @@ export function NeutronStar() {
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 1 / 30);
     tRef.current += dt;
+    starClock.t = tRef.current; // publish once/frame for beams/sonify (finding 1)
     if (meshRef.current) meshRef.current.rotation.y = starSpinAngle(tRef.current);
   });
 

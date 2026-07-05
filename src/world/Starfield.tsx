@@ -20,7 +20,6 @@ import {
   vec3,
   float,
   fract,
-  dot,
   sin,
   pow,
   floor,
@@ -42,7 +41,6 @@ import {
   CubeCamera,
   CubeRenderTarget,
   Mesh,
-  NoToneMapping,
   Scene,
   SphereGeometry,
 } from 'three/webgpu';
@@ -67,8 +65,11 @@ const SHELL_FAR = 6000;
 // is a time-driven sin keyed off a per-star phase attribute.
 function createStarPointsMaterial() {
   const mat = new PointsNodeMaterial();
-  mat.size = 2.5; // ponytail: uniform size; per-point sizeNode deferred (API risk, not needed at this scale)
-  mat.sizeAttenuation = true;
+  // finding 4: shell r=2500–6000 with sizeAttenuation=true projects to ~0.4–0.9px
+  // (sub-pixel → near-invisible). Pixel size with attenuation off reads at any range.
+  mat.size = 2; // px
+  mat.sizeAttenuation = false;
+  // ponytail: uniform size; per-point sizeNode deferred (API risk, not needed at this scale)
   const phase = attribute('aPhase') as unknown as ReturnType<typeof float>; // @types/three TSL gap: AttributeNode lacks operator exts
   const twinkle = sin(time.mul(2.0).add(phase)).mul(0.35).add(0.65); // [0.30, 1.00]
   mat.colorNode = vertexColor().mul(twinkle);
@@ -108,9 +109,16 @@ function buildStarGeometry(count: number): BufferGeometry {
 
 // ── Bake star shader (procedural hash stars on an inward sphere) ────────────
 // Compact cell-jittered starfield for the cube bake. Two layers, rare bright.
-const hash31 = /* @__PURE__ */ Fn(([p]: [any]) =>
-  fract(sin(dot(p, vec3(127.1, 311.7, 74.7))).mul(43758.5453)),
-);
+// finding 6: PCG integer hash (uint bit ops) — sin-hash diverges WGSL vs WebGL2
+// for sin args far beyond 2π, so the baked sky differed per backend. Mirrors
+// three's nodes/math/Hash.js (pcg-random.org). Returns float in [0, 1).
+const hash31 = /* @__PURE__ */ Fn(([p]: [any]) => {
+  const seed = p.x.toUint().add(p.y.toUint().shiftLeft(1)).add(p.z.toUint().shiftLeft(2));
+  const state = seed.mul(747796405).add(2891336453);
+  const word = state.shiftRight(state.shiftRight(28).add(4)).bitXor(state).mul(277803737);
+  const result = word.shiftRight(22).bitXor(word);
+  return result.toFloat().mul(1 / 2 ** 32);
+});
 
 const bakeStarLayer = /* @__PURE__ */ Fn(([dir, scale, thresh]: [any, any, any]) => {
   const s = dir.mul(scale);
@@ -146,6 +154,10 @@ function createBakeStarMaterial() {
 
 // ── Cubemap export ──────────────────────────────────────────────────────────
 let starfieldCube: CubeTexture | null = null;
+// finding 5: keep the CubeRenderTarget reachable alongside its texture so it can
+// be disposed. Previously rt was dropped after the bake → GPU mem leak for the
+// session, and the singleton guard prevented re-bake so the first RT never freed.
+let starfieldRT: CubeRenderTarget | null = null;
 export function getStarfieldCube(): CubeTexture | null {
   return starfieldCube;
 }
@@ -176,10 +188,11 @@ export function Starfield({ tier }: { tier: Tier }) {
     const nebSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createNebulaMaterial());
     const starSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createBakeStarMaterial());
     scene.add(nebSphere, starSphere);
-    const savedTM = gl.toneMapping;
-    (gl as any).toneMapping = NoToneMapping; // bake raw — lensing tone-maps downstream
+    // finding 7: dropped the gl.toneMapping=NoToneMapping toggle — WebGPURenderer
+    // compiles pipelines async so the sync toggle can't take effect this call,
+    // and bake materials are already toneMapped=false (raw for lensing).
     cam.update(gl, scene);
-    (gl as any).toneMapping = savedTM;
+    starfieldRT = rt;
     starfieldCube = rt.texture;
     // Drop bake-only GPU resources; the CubeTexture (rt.texture) stays live.
     nebSphere.geometry.dispose();
@@ -187,6 +200,18 @@ export function Starfield({ tier }: { tier: Tier }) {
     nebSphere.material.dispose();
     starSphere.material.dispose();
   }, [gl, tier]);
+
+  // finding 5: free the baked CubeRenderTarget on unmount and clear the singleton
+  // so a remount rebakes fresh (no leaked RT, no stale disposed texture).
+  useEffect(() => {
+    return () => {
+      if (starfieldRT) {
+        starfieldRT.dispose();
+        starfieldRT = null;
+        starfieldCube = null;
+      }
+    };
+  }, []);
 
   if (count === 0) return null;
 

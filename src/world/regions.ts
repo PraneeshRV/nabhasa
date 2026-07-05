@@ -33,8 +33,9 @@ export function regionAt(pos: Vector3): RegionId {
   return 'arrival';
 }
 
-// Craft (Task 6) calls regionAt each fixed step and pushes the result here at
-// 10Hz; post + audio + HUD select from it. Arrival is the safe default pre-spawn.
+// Craft (Task 6) calls regionAt(pos) inside its physics step and pushes the
+// result here ~10Hz (every 6th FIXED_DT step); post + audio + HUD select from
+// it. Arrival is the safe default pre-spawn.
 interface RegionState {
   region: RegionId;
   setRegion: (r: RegionId) => void;
