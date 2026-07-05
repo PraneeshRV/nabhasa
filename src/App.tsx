@@ -2,10 +2,12 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { NabhasaCanvas } from './core/renderer';
 import { usePerfProbe } from './core/perfProbe';
 import { detectTier, type Tier } from './core/tiers';
+import { QUALITY } from './core/quality';
 import { Starfield } from './world/Starfield';
 import { NeutronStar } from './world/NeutronStar';
 import { PulsarBeams } from './signatures/PulsarBeams';
 import { CameraRig } from './flight/cameraRig';
+import { LensingSkybox } from './signatures/LensingSkybox';
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
@@ -36,9 +38,14 @@ function MainExperience() {
     };
   }, []);
   if (!tier) return null;
+  // Sky ownership (spec Task 7 step 3): lensing owns the sky on every lensing tier
+  // to avoid a double sky; <Starfield> owns it only on the 'off' (static) tier.
+  // Starfield's cubemap bake therefore only runs where it renders — fine while the
+  // lensing shader uses its procedural sky (see LensingSkybox DEVIATION 2).
+  const lensing = QUALITY[tier].lensing;
   return (
     <NabhasaCanvas tier={tier}>
-      <Starfield tier={tier} />
+      {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
       <NeutronStar />
       <PulsarBeams tier={tier} />
       <Suspense fallback={null}>
