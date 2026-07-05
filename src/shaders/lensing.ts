@@ -109,7 +109,7 @@ export const lensedSky = /*@__PURE__*/ Fn(() => {
   const captureMask = smoothstep(photonRing.mul(0.98), photonRing.mul(1.06), b);
   // Photon-ring glow: Lorentzian around b = photonRing, ember-hot.
   const ringGlow = ringIntensity.div(pow(abs(b.sub(photonRing)).div(ringWidth), 2.0).add(1.0));
-  const ringColor = vec3(1.0, 0.55, 0.3);
+  const ringColor = vec3(0.686, 0.890, 1.0);
 
   return sky.mul(captureMask).add(ringColor.mul(ringGlow));
 });
