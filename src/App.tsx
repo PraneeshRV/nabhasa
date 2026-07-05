@@ -8,6 +8,7 @@ import { NeutronStar } from './world/NeutronStar';
 import { PulsarBeams } from './signatures/PulsarBeams';
 import { CameraRig } from './flight/cameraRig';
 import { LensingSkybox } from './signatures/LensingSkybox';
+import { CollapsePreloader } from './signatures/CollapsePreloader';
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
@@ -26,18 +27,7 @@ function PerfLogger() {
   return null;
 }
 
-function MainExperience() {
-  const [tier, setTier] = useState<Tier | null>(null);
-  useEffect(() => {
-    let alive = true;
-    detectTier().then((t) => {
-      if (alive) setTier(t);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-  if (!tier) return null;
+function MainExperience({ tier }: { tier: Tier }) {
   // Sky ownership (spec Task 7 step 3): lensing owns the sky on every lensing tier
   // to avoid a double sky; <Starfield> owns it only on the 'off' (static) tier.
   // Starfield's cubemap bake therefore only runs where it renders — fine while the
@@ -57,8 +47,74 @@ function MainExperience() {
   );
 }
 
+// Detect tier once (every shell needs it). Called unconditionally at the top of
+// App so the rules of hooks hold across the dev-page early returns.
+function useTier(): Tier | null {
+  const [tier, setTier] = useState<Tier | null>(null);
+  useEffect(() => {
+    let alive = true;
+    detectTier().then((t) => {
+      if (alive) setTier(t);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return tier;
+}
+
+// Warm the real lazy payload (Rapier WASM) during the preloader so the main
+// scene is instant on ENGAGE. This mirrors Craft's own lazy import (cached), and
+// its resolution is the preloader's honest `ready` signal. A failed load still
+// resolves ready so the gate can never stall on a dead chunk.
+function useRapierWarm(): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    import('./flight/Craft')
+      .then(() => alive && setReady(true))
+      .catch(() => alive && setReady(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return ready;
+}
+
+// Live tiers: collapse gate → main scene. The preloader owns the only active
+// canvas during the burst (clean perf gate); the main scene mounts on ENGAGE.
+function ExperienceShell({ tier }: { tier: Tier }) {
+  const rapierReady = useRapierWarm();
+  const [entered, setEntered] = useState(false);
+  return (
+    <>
+      {entered && <MainExperience tier={tier} />}
+      {!entered && (
+        <CollapsePreloader
+          tier={tier}
+          ready={rapierReady}
+          // sound: boolean — forwarded to Task 10 audio when merged.
+          onEnter={() => setEntered(true)}
+        />
+      )}
+    </>
+  );
+}
+
+// /?dev=collapse — art-direction harness for the preloader (spec Task 8 Step 1):
+// leva drives progress + phase manually; real loading is bypassed.
+function CollapseHarness({ tier }: { tier: Tier }) {
+  return <CollapsePreloader tier={tier} ready onEnter={() => {}} dev />;
+}
+
 export function App() {
+  // Top-level so hooks run unconditionally regardless of dev routing below.
+  const tier = useTier();
   const dev = new URLSearchParams(location.search).get('dev');
+
+  if (dev === 'collapse') {
+    return tier ? <CollapseHarness tier={tier} /> : null;
+  }
   const Page = dev ? DEV_PAGES[dev] : undefined;
   if (Page) {
     return (
@@ -67,5 +123,8 @@ export function App() {
       </Suspense>
     );
   }
-  return <MainExperience />;
+
+  if (!tier) return null;
+  if (tier === 'static') return <MainExperience tier={tier} />; // reduced-motion: skip the collapse
+  return <ExperienceShell tier={tier} />;
 }
