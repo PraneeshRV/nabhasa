@@ -53,7 +53,7 @@ HUD text color `--ui-cold`; the value currently being sonified/changed may pulse
 ## Per-region mood + lighting key
 
 Photographic discipline everywhere: **one key + one rim + ambient floor**, nothing else.
-The star is the sole point light in the system (already true in `planets.ts` — keep).
+The star is the sole GLOBAL point light. Amended 2026-07-06 (needs re-approval): one region-scoped, non-decaying key light is sanctioned inside the Dyson swarm only — the region's own lighting key demands a readable specular glint, and the star's real irradiance at 900 wu (~0.074) cannot provide it. No other region gets a second light.
 
 ### Arrival (spawn, r ≈ 1500–3000 wu)
 - Mood: silence, scale, dread of the small bright thing far away.
