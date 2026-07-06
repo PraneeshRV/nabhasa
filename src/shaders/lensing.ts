@@ -25,8 +25,10 @@ import {
   fract,
   floor,
   pow,
+  mix,
   positionWorld,
   cameraPosition,
+  cubeTexture,
 } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { BackSide } from 'three';
@@ -45,6 +47,17 @@ export const lensingUniforms = {
 
 const { rsVis, photonRing, bendK, ringIntensity, ringWidth, dopplerStrength, starScale, starThreshold } =
   lensingUniforms;
+
+// Optional baked starfield cubemap (Task 5 bake; Task 7 locked approach — "sample
+// starfieldCube along bent ray"). Null-safe: cubeTexture() defaults to an empty
+// CubeTexture (placeholder on the GPU → samples black), and skyCubeBlend gates
+// procedural skyColor ↔ cubemap. LensingSkybox swaps skyCube.value + flips blend→1
+// once the bake lands (Starfield doesn't mount on lensing tiers, so bakeStarfieldCube
+// triggers it standalone). One TSL graph → WGSL + GLSL; procedural skyColor stays the
+// active sky until the blend flips (graceful-null fallback). .value is a uniform write,
+// not a graph rebuild — set once, no per-frame work.
+export const skyCube = cubeTexture();
+export const skyCubeBlend = uniform(0.0);
 
 // hash3 → 1: PCG integer hash (uint bit ops). Mirrors three's nodes/math/Hash.js
 // + src/world/Starfield.tsx hash31 — fract(sin(dot)) diverged WGSL vs WebGL2 for
@@ -78,8 +91,10 @@ const starLayer = /*@__PURE__*/ Fn(([dir, scale, thresh]: [any, any, any]) => {
   return core.mul(step(thresh, h)).mul(mag.mul(3.0).add(0.4));
 });
 
-// Background sky sampled along an arbitrary direction. Task 5's starfield cubemap
-// replaces this at integration on high tiers; this stays as the KB-weight fallback.
+// Background sky sampled along an arbitrary direction. This is the procedural
+// fallback: lensedSky mixes it against the baked starfield cubemap (skyCube) under
+// skyCubeBlend. While blend=0 (no bake / static tier) this IS the sky; once
+// LensingSkybox flips blend→1 the cubemap sampled along the bent ray takes over.
 const skyColor = /*@__PURE__*/ Fn(([dir]: [any]) => {
   const l1 = starLayer(dir, starScale, starThreshold);
   const l2 = starLayer(dir.add(vec3(3.7, 1.9, 8.2)), starScale.mul(2.3), starThreshold.add(0.004));
@@ -109,7 +124,12 @@ export const lensedSky = /*@__PURE__*/ Fn(() => {
   // Doppler tint: light dragged with the tangential (spin) direction — subtle.
   const tangent = normalize(cross(vec3(0.0, 1.0, 0.0), normalize(q.add(vec3(0.0, 1e-4, 0.0)))));
   const dopp = dot(dir, tangent).mul(dopplerStrength);
-  const sky = skyColor(bent).mul(vec3(float(1.0).sub(dopp), 1.0, float(1.0).add(dopp)));
+  // Bent ray → sky. skyCubeBlend selects procedural skyColor (0) or the baked
+  // starfield cubemap sampled along the bent direction (1). .sample(bent) clones the
+  // cube node with bent as its uv; skyCube.value is swapped in by LensingSkybox once
+  // baked and reaches the sample through the node's referenceNode (no graph rebuild).
+  const bentSky = mix(skyColor(bent), skyCube.sample(bent).rgb, skyCubeBlend);
+  const sky = bentSky.mul(vec3(float(1.0).sub(dopp), 1.0, float(1.0).add(dopp)));
 
   // Capture: inside the photon ring everything falls to black.
   const captureMask = smoothstep(photonRing.mul(0.98), photonRing.mul(1.06), b);

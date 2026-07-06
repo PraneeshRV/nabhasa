@@ -25,8 +25,12 @@ const HINTS: Record<InputSource, string> = {
   touch: 'LEFT HALF THRUST/STRAFE · RIGHT HALF LOOK',
 };
 
-const sci = (x: number) => (x === 0 ? '0' : x.toExponential(2));
-const pct = (f: number) => `${Math.round(f * 100)}`;
+// finding 7: NaN/Infinity guard + clamp. sci(NaN) would render the literal "NaN";
+// pct(<0|>1) would render a nonsense %. Currently unreachable (rKm≥rs, fuel
+// clamped upstream) but the formatter is the wrong layer to discover that from —
+// guard here so a future caller change can't surface it as "NaN" on the HUD.
+const sci = (x: number) => (!isFinite(x) ? '—' : x === 0 ? '0' : x.toExponential(2));
+const pct = (f: number) => `${Math.round((f < 0 ? 0 : f > 1 ? 1 : f) * 100)}`;
 
 export function Telemetry() {
   const s = useHudStore();

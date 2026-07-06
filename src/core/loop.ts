@@ -8,6 +8,7 @@
 // >0.5s gap (tab switch / suspend) the accumulator is zeroed and the resumed
 // frame contributes at most one 1/33 slice (≤ 2 steps), preventing a catch-up
 // storm. Normal frames accumulate unclamped and self-correct via carry.
+// ponytail: unused in prod (Rapier updateLoop=independent owns stepping); kept as spec Task 3 contract artifact
 export function createFixedLoop(step: (dt: number) => void, hz = 60) {
   const fixedDt = 1 / hz;
   let acc = 0;

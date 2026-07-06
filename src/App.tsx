@@ -23,8 +23,10 @@ import { initSonify, setActiveSonify, getActiveSonify, noop } from './audio/soni
 // must NOT load on the mobile route. These were statically imported → they landed
 // in the entry chunk fetched on EVERY route (incl. mobile). React.lazy splits them
 // into the desktop chunk (rendered only inside ExperienceShell / MainExperience,
-// desktop after ENGAGE). useCourierStore is a store (not a component) → loaded via
-// dynamic import() at the onKill call site below.
+// desktop after ENGAGE). useCourierStore is a store (not a component) → reached
+// via flight/Craft's static import (Craft itself lazy-loads, so courier lands in
+// the flight chunk, never the entry/mobile chunk). The old onKill dynamic import
+// here was redundant (finding 3); the fail dispatch is now synchronous in Craft.
 const Telemetry = lazy(() => import('./hud/Telemetry').then((m) => ({ default: m.Telemetry })));
 const HudSampler = lazy(() => import('./hud/hudStore').then((m) => ({ default: m.HudSampler })));
 const MissionResult = lazy(() => import('./hud/MissionResult').then((m) => ({ default: m.MissionResult })));
@@ -76,10 +78,12 @@ function RegionAtmosphere() {
     const amb = getAmbient();
     if (amb) amb.setBedGain(cur.current.amb);
   });
-  // ponytail: dim blue-grey floor; the constant intensity is the mount value only
-  // — useFrame owns every subsequent write via ref (region-change re-renders don't
-  // clobber it: the prop is a stable literal). Color is a feel knob.
-  return <ambientLight ref={ambRef} color="#2a3548" intensity={REGION_PROFILES.arrival.ambientLevel} />;
+  // ponytail: dim blue-grey floor; intensity={0} so R3F's region-change prop
+  // re-apply (which clobbered the lerped ref to 0.015 for one frame mid-transition,
+  // finding 6) is harmless — useFrame's ref write is the SOLE owner, and it runs in
+  // the same frame after commit, overwriting the 0. Starts black, lerps to arrival
+  // on the first frame. Color is a feel knob.
+  return <ambientLight ref={ambRef} color="#2a3548" intensity={0} />;
 }
 
 function MainExperience({ tier }: { tier: Tier }) {
@@ -105,14 +109,7 @@ function MainExperience({ tier }: { tier: Tier }) {
       <RegionAtmosphere />
       <Suspense fallback={null}>
         <Beacons />
-        <Craft
-          onKill={() =>
-            // Dynamic import keeps game/courier out of the entry chunk (Task 14).
-            import('./game/courier').then((m) =>
-              m.useCourierStore.getState().reduce({ type: 'fail', reason: 'destroyed' }),
-            )
-          }
-        />
+        <Craft />
         <HudSampler />
       </Suspense>
       <CameraRig />

@@ -154,6 +154,36 @@ export function getStarfieldCube(): CubeTexture | null {
   return starfieldCube;
 }
 
+// One-shot starfield+nebula bake into the session-singleton CubeTexture, callable
+// with or without <Starfield> mounted. LensingSkybox calls this on lensing tiers
+// (where <Starfield> doesn't render) so the lensing shader's bent-ray sample sees a
+// real sky instead of its procedural fallback. Idempotent: skips if already baked.
+// `renderer` is typed as CubeCamera.update's arg (R3F's gl satisfies it) — the only
+// thing this fn does with it is drive the 6-face cube render. RT ownership stays in
+// this module (starfieldRT/starfieldCube singletons); the unmount dispose below
+// clears them only when <Starfield> itself unmounts, so a standalone bake persists
+// for the session (Deviation: standalone-bake RT persistence — see LensingSkybox).
+export function bakeStarfieldCube(renderer: Parameters<CubeCamera['update']>[0]): void {
+  if (starfieldCube) return;
+  const rt = new CubeRenderTarget(512);
+  const cam = new CubeCamera(0.1, SHELL_FAR * 2, rt);
+  const scene = new Scene();
+  const nebSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createNebulaMaterial());
+  const starSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createBakeStarMaterial());
+  scene.add(nebSphere, starSphere);
+  // finding 7: dropped the gl.toneMapping=NoToneMapping toggle — WebGPURenderer
+  // compiles pipelines async so the sync toggle can't take effect this call,
+  // and bake materials are already toneMapped=false (raw for lensing).
+  cam.update(renderer, scene);
+  starfieldRT = rt;
+  starfieldCube = rt.texture;
+  // Drop bake-only GPU resources; the CubeTexture (rt.texture) stays live.
+  nebSphere.geometry.dispose();
+  starSphere.geometry.dispose();
+  nebSphere.material.dispose();
+  starSphere.material.dispose();
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 export function Starfield({ tier }: { tier: Tier }) {
   const { gl } = useThree();
@@ -171,26 +201,12 @@ export function Starfield({ tier }: { tier: Tier }) {
     return dispose;
   }, [nebulaMat, pointsMat, geo]);
 
-  // One-shot cubemap bake (skip on static / if already baked this session).
+  // One-shot cubemap bake (skip on static; bakeStarfieldCube's singleton guard is the
+  // idempotency fence). Extracted so LensingSkybox can trigger the same bake on lensing
+  // tiers where <Starfield> doesn't mount — same fn, same RT singletons, same dispose.
   useEffect(() => {
-    if (tier === 'static' || starfieldCube) return;
-    const rt = new CubeRenderTarget(512);
-    const cam = new CubeCamera(0.1, SHELL_FAR * 2, rt);
-    const scene = new Scene();
-    const nebSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createNebulaMaterial());
-    const starSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createBakeStarMaterial());
-    scene.add(nebSphere, starSphere);
-    // finding 7: dropped the gl.toneMapping=NoToneMapping toggle — WebGPURenderer
-    // compiles pipelines async so the sync toggle can't take effect this call,
-    // and bake materials are already toneMapped=false (raw for lensing).
-    cam.update(gl, scene);
-    starfieldRT = rt;
-    starfieldCube = rt.texture;
-    // Drop bake-only GPU resources; the CubeTexture (rt.texture) stays live.
-    nebSphere.geometry.dispose();
-    starSphere.geometry.dispose();
-    nebSphere.material.dispose();
-    starSphere.material.dispose();
+    if (tier === 'static') return;
+    bakeStarfieldCube(gl);
   }, [gl, tier]);
 
   // finding 5: free the baked CubeRenderTarget on unmount and clear the singleton

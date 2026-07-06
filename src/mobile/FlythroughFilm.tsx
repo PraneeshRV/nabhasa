@@ -23,7 +23,7 @@
 // alloc, no CatmullRom.getPoint API-surface risk); everything disposed on
 // unmount; sonify + HUD DOM writes throttled to 10 Hz.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three/webgpu';
 import gsap from 'gsap';
@@ -216,10 +216,10 @@ export function FlythroughFilm({ tier, sound }: { tier: Tier; sound: boolean }) 
   const progress = useRef<Progress>({ p: 0 });
   const hudEl = useRef<HTMLDivElement | null>(null);
   const railEl = useRef<HTMLDivElement | null>(null);
-  // Full-film scrub across ~SCRUB_SENS_FACTOR× viewport width of drag. Computed
-  // once (innerWidth is stable for the film's lifetime; orientationchange would
-  // need a re-read — deferred until a device test shows it matters).
-  const [sens] = useState(() => SCRUB_SENS_FACTOR / window.innerWidth);
+  // Full-film scrub across ~SCRUB_SENS_FACTOR× viewport width of drag. Derived
+  // live in onPointerMove (finding 10): baking sens once from window.innerWidth
+  // left the scrub scale wrong after a resize/orientationchange for the rest of
+  // the session. Reading innerWidth per move is cheap and always current.
 
   // drag scratch (module-life; one film at a time)
   const drag = useRef({ active: false, startX: 0, lastT: 0, lastX: 0, vel: 0, pAtDown: 0 });
@@ -257,7 +257,7 @@ export function FlythroughFilm({ tier, sound }: { tier: Tier; sound: boolean }) 
     const d = drag.current;
     if (!d.active) return;
     const dx = e.clientX - d.startX;
-    progress.current.p = clamp01(d.pAtDown + dx * sens);
+    progress.current.p = clamp01(d.pAtDown + dx * (SCRUB_SENS_FACTOR / window.innerWidth));
     // track velocity (px/ms) for release inertia
     const dt = e.timeStamp - d.lastT;
     if (dt > 0) d.vel = (e.clientX - d.lastX) / dt;

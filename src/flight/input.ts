@@ -78,6 +78,11 @@ export function attachInput(el: HTMLElement): () => void {
   const onKeyDown = (e: KeyboardEvent) => {
     pressed.add(e.code);
     recompute();
+    // finding 5: Space/Arrows scroll the page AND, with a focused button
+    // (MissionResult focuses "Continue flight"), Space click-activates it —
+    // dismissing the result card mid-read when the player brakes. preventDefault
+    // on the game keys; the pressed-set still drives input, so steering is intact.
+    if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault?.();
   };
   const onKeyUp = (e: KeyboardEvent) => {
     pressed.delete(e.code);

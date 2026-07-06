@@ -124,10 +124,17 @@ export function PulsarBeams({ tier }: { tier: Tier }) {
     // ── rim light snapped to nearest beam-axis point, ∝ alignment ──
     const light = lightRef.current;
     if (light) {
-      light.intensity = transit * LIGHT_SCALE;
       // nearest point on the beam axis line (through origin along `dominant`)
       const t = Math.min(Math.max(craftState.pos.dot(dominant), 0), BEAM_LENGTH);
       light.position.copy(dominant).multiplyScalar(t);
+      // finding 8: decay=2 ⇒ hull illuminance = intensity/d². In full transit the
+      // craft sits ~on the beam axis, so this projection lands within ~0-2 wu of
+      // the hull → transit·4000/d² blew the metal past the region-fixed exposure
+      // (no auto-exposure to absorb it). Scale intensity by min(1, d²): for d≥1
+      // unchanged; for d<1 the d² cancels, capping illuminance at the d=1 baseline
+      // instead of diverging. distanceToSquared reads the just-set position, no alloc.
+      const d2 = craftState.pos.distanceToSquared(light.position);
+      light.intensity = transit * LIGHT_SCALE * Math.min(1, Math.max(d2, 1e-4));
     }
 
     // ── publish phase + transit for sonify / HUD ──

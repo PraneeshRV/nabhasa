@@ -80,6 +80,7 @@ export function Craft({ onKill }: { onKill?: () => void }) {
       {/* useBeforePhysicsStep must run inside <Physics> context, so the body
           lives in a child component. */}
       <CraftBody onKill={onKill} />
+      <PlanetColliders />
     </Physics>
   );
 }
@@ -105,6 +106,19 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
   useBeforePhysicsStep(() => {
     const b = rb.current;
     if (!b) return;
+    // finding 2: a delivered/failed FSM state mounts an opaque overlay, but the
+    // Rapier world kept stepping — gravity, boundary spring, AND live thrust drove
+    // the craft blind under it (drifted/respawned somewhere unexpected on dismiss).
+    // Freeze the body for the overlay's duration: clear queued force/torque + zero
+    // velocity, skip the rest of the step. No setState — getState() read only.
+    const st = useCourierStore.getState().status;
+    if (st === 'delivered' || st === 'failed') {
+      b.resetForces(true);
+      b.resetTorques(true);
+      b.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      return;
+    }
     pollGamepad();
 
     const p = b.translation();
@@ -177,6 +191,15 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
 
     // kill: tidal destruction + respawn
     if (r < KILL_RADIUS) {
+      // finding 3: dispatch the fail SYNCHRONOUSLY. The old path went through an
+      // async import('./game/courier').then(...) in App's onKill, so the FSM stayed
+      // 'active' (fuel draining, sensing) for ≥1 frame after death. courier is
+      // already statically imported here (line 37), so the dynamic import bought
+      // nothing chunk-wise either. reduce() is an external-store set, same idiom as
+      // the step() call above — safe in this hook. Fires once per death: the
+      // finding-2 gate freezes the body next step (status === 'failed'), so this
+      // block can't re-enter before the FSM reset.
+      useCourierStore.getState().reduce({ type: 'fail', reason: 'destroyed' });
       // Respawn at the ACTIVE mission's source beacon (finding 6): a kill on m2–m5
       // otherwise drops the craft at m1.from (RESPAWN_POS) → a long dead-air flight
       // back to the failed mission's `from`. Idle (no mission) falls back to spawn.
@@ -210,6 +233,12 @@ function respawn(b: RapierRigidBody, onKill: (() => void) | undefined, at: reado
   b.setTranslation({ x: at[0], y: at[1], z: at[2] }, true);
   b.setLinvel({ x: 0, y: 0, z: 0 }, true);
   b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  // finding 1: resetForces/addForce earlier in the step ran BEFORE the kill check,
+  // so the stale force (incl. ~432 wu/s² gravity computed at the death radius) was
+  // still queued — Rapier applied it at the new position, kicking the zeroed craft
+  // ~7 wu/s on respawn. Clear it now so the body is truly at rest at the new pose.
+  b.resetForces(true);
+  b.resetTorques(true);
   // face the star at origin: rotate local -Z onto (pos → origin)
   _dir.set(-at[0], -at[1], -at[2]).normalize();
   _quat.setFromUnitVectors(FWD_LOCAL, _dir);
@@ -227,6 +256,44 @@ function respawn(b: RapierRigidBody, onKill: (() => void) | undefined, at: reado
   }
 
   onKill?.(); // tidal-destruction audio cue wired by Task 9
+}
+
+// finding 4: planet physics proxies. The Lich planets had NO Rapier colliders, so
+// the craft (BallCollider r=2) clipped straight through their bodies — undercut the
+// "must feel physical" line for the very bodies missions route between. They ORBIT,
+// so static bodies are wrong: kinematicPosition bodies whose translation we sync
+// each sub-step from the SAME getPlanetPositions() singleton gravity + the visual
+// <LichPlanets> meshes publish. kinematicPosition ⇒ the dynamic craft bounces/stops
+// against them (ccd on the craft keeps the contact clean); no forces, no drift.
+// Collider-only — the planet hull stays in <LichPlanets>; this is an invisible proxy.
+function PlanetColliders() {
+  const refs = useRef<(RapierRigidBody | null)[]>([]);
+  useBeforePhysicsStep(() => {
+    const ps = getPlanetPositions();
+    const arr = refs.current;
+    for (let i = 0; i < arr.length; i++) {
+      const b = arr[i];
+      const p = ps[i];
+      if (!b || !p) continue;
+      b.setTranslation({ x: p.x, y: p.y, z: p.z }, true);
+    }
+  });
+  return (
+    <>
+      {PLANET_RADII_WU.map((rw, i) => (
+        <RigidBody
+          key={i}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          type="kinematicPosition"
+          colliders={false}
+        >
+          <BallCollider args={[rw]} />
+        </RigidBody>
+      ))}
+    </>
+  );
 }
 
 // Thruster FX: emissive cone keyed to forward thrust (placeholder this wave).

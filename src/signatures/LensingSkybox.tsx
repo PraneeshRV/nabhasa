@@ -20,18 +20,23 @@
 //
 // DEVIATIONS (conductor review — each traces to a binding constraint):
 //  2. CUBEMAP: getStarfieldCube() (Task 5 bake) is the lensing shader's intended
-//     sky input, sampled along bent rays. NOT plumbed — feeding it to skyColor is
-//     a shader extension (out of scope). Procedural skyColor is the active sky =
-//     the graceful-null fallback. Wire when the conductor greenlights the extension.
+//     sky input, sampled along bent rays. PLUMBED — bakeStarfieldCube(gl) fires
+//     once on mount (Starfield doesn't mount on lensing tiers), then a useFrame
+//     ref poll feeds getStarfieldCube() into skyCube + flips skyCubeBlend→1 once
+//     non-null. Procedural skyColor stays the pre-bake fallback (blend=0) and the
+//     null-safe path if the bake never lands. RT dispose stays owned by Starfield;
+//     on lensing tiers Starfield never mounts, so the standalone-bake RT persists
+//     for the session (one 512 cube RT, 6 faces — accepted, freed on page unload).
 //  3. HALF-RES: no 'half' tier ships — every lensing tier renders the full-res
 //     sphere (QUALITY says 'full'). The RT+bilateral pipeline is blind WebGPU
 //     render-graph work (can't verify pass ordering here); dev harness measured
 //     60fps WebGL2/Intel, so the fps gate holds without it. Add a 'half' tier
 //     when a live tier proves <30fps at full-res.
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { createLensedSkyMaterial, lensingUniforms } from '../shaders/lensing';
+import { createLensedSkyMaterial, lensingUniforms, skyCube, skyCubeBlend } from '../shaders/lensing';
+import { bakeStarfieldCube, getStarfieldCube } from '../world/Starfield';
 import { QUALITY } from '../core/quality';
 import type { Tier } from '../core/tiers';
 
@@ -54,11 +59,24 @@ const RING_BOOST = 2.2; // peak ringIntensity multiplier at the near-star bounda
 
 export function LensingSkybox({ tier }: { tier: Tier }) {
   const mode = QUALITY[tier].lensing;
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
 
   // Proven material (procedural lensing graph, dual-backend). One per mount;
   // R3F auto-disposes JSX geometry but not a passed material → manual dispose.
   const material = useMemo(() => createLensedSkyMaterial(), []);
+
+  // Latch: feed the baked cubemap into the shader exactly once (ref, no setState).
+  const cubeFed = useRef(false);
+
+  // Trigger the starfield bake once on mount. <Starfield> doesn't mount on lensing
+  // tiers, so without this the shader's bent-ray cubemap sample never sees a real
+  // sky (procedural skyColor would be the permanent fallback). Idempotent —
+  // bakeStarfieldCube's singleton guard no-ops if Starfield already baked. RT
+  // ownership stays in Starfield (we only read getStarfieldCube(), never dispose).
+  useEffect(() => {
+    if (mode === 'off') return; // 'off' → Starfield owns the sky + its own bake
+    bakeStarfieldCube(gl);
+  }, [gl, mode]);
 
   // Guarantee the sphere renders regardless of the default far plane.
   useEffect(() => {
@@ -83,6 +101,19 @@ export function LensingSkybox({ tier }: { tier: Tier }) {
     const dist = camera.position.length(); // star at world origin
     const t = 1 - Math.min(1, Math.max(0, (dist - RING_NEAR_DIST) / (RING_FAR_DIST - RING_NEAR_DIST)));
     lensingUniforms.ringIntensity.value = RING_BASELINE * (1 + (RING_BOOST - 1) * t);
+
+    // Feed the baked cubemap once it lands. The bake is one-shot but its texture
+    // may take a frame to surface (WebGPU async pipeline compile), so poll until
+    // non-null, then bind + flip blend once. skyCube is a UniformNode → .value is
+    // a live uniform write (no graph rebuild); cubeFed gates it to a single set.
+    if (!cubeFed.current) {
+      const cube = getStarfieldCube();
+      if (cube) {
+        skyCube.value = cube;
+        skyCubeBlend.value = 1;
+        cubeFed.current = true;
+      }
+    }
   });
 
   if (mode === 'off') return null;
