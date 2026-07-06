@@ -39,7 +39,7 @@ import { craftState } from '../flight/craftState';
 import { regionAt, type RegionId } from '../world/regions';
 import { timeDilation } from '../hud/physics-data';
 import { initAudio, setMuted, getAudio } from '../audio/engine';
-import { startAmbient } from '../audio/ambient';
+import { startAmbient, getAmbient } from '../audio/ambient';
 import { initSonify, type SonifyHandle } from '../audio/sonify';
 
 // ── Authored camera path (world units; star at origin, SWARM @ (900,0,0)) ──────
@@ -145,6 +145,7 @@ function FilmCamera({ progress, hudEl, railEl, sound }: FilmCameraProps) {
       unsub();
       sonifyH.current?.dispose();
       sonifyH.current = null;
+      getAmbient()?.dispose(); // ambient bed built in armAudio; free it on film unmount
     };
   }, [armAudio, sound]);
 

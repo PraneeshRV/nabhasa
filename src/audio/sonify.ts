@@ -152,6 +152,12 @@ export function initSonify(opts: { getSpinPhase: () => number }): SonifyHandle {
     g.connect(master);
     osc.start(t);
     osc.stop(t + SWEEP_MS / 1000 + 0.02);
+    // one-shot cleanup: free the transient nodes once the stop fires (no GC linger)
+    osc.onended = () => {
+      osc.disconnect();
+      bp.disconnect();
+      g.disconnect();
+    };
   }
 
   // Flare hit: short noise burst through a resonant lowpass, exp decay.
@@ -172,6 +178,12 @@ export function initSonify(opts: { getSpinPhase: () => number }): SonifyHandle {
     g.connect(master);
     src.start(t);
     src.stop(t + dur + 0.05);
+    // one-shot cleanup: free the transient nodes once the stop fires (no GC linger)
+    src.onended = () => {
+      src.disconnect();
+      f.disconnect();
+      g.disconnect();
+    };
   }
 
   function update(state: SonifyState): void {

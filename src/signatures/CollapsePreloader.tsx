@@ -121,11 +121,12 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
   const loadCountsRef = useRef({ loaded: 0, total: 0 });
   useEffect(() => {
     const manager = THREE.DefaultLoadingManager;
+    const prev = manager.onProgress; // save: a shared global — restore, don't noop
     manager.onProgress = (_url, loaded, total) => {
       loadCountsRef.current = { loaded, total };
     };
     return () => {
-      manager.onProgress = () => {};
+      manager.onProgress = prev;
     };
   }, []);
 

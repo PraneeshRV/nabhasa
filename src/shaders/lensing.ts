@@ -24,7 +24,6 @@ import {
   step,
   fract,
   floor,
-  sin,
   pow,
   positionWorld,
   cameraPosition,
@@ -47,10 +46,17 @@ export const lensingUniforms = {
 const { rsVis, photonRing, bendK, ringIntensity, ringWidth, dopplerStrength, starScale, starThreshold } =
   lensingUniforms;
 
-// hash3 → 1: classic fract(sin(dot)) — good enough for star placement, zero deps.
-const hash31 = /*@__PURE__*/ Fn(([p]: [any]) =>
-  fract(sin(dot(p, vec3(127.1, 311.7, 74.7))).mul(43758.5453)),
-);
+// hash3 → 1: PCG integer hash (uint bit ops). Mirrors three's nodes/math/Hash.js
+// + src/world/Starfield.tsx hash31 — fract(sin(dot)) diverged WGSL vs WebGL2 for
+// sin args far beyond 2π, so the lensed sky differed per backend. Determinism is
+// the goal; visual output may shift slightly from the sin-hash version.
+const hash31 = /*@__PURE__*/ Fn(([p]: [any]) => {
+  const seed = p.x.toUint().add(p.y.toUint().shiftLeft(1)).add(p.z.toUint().shiftLeft(2));
+  const state = seed.mul(747796405).add(2891336453);
+  const word = state.shiftRight(state.shiftRight(28).add(4)).bitXor(state).mul(277803737);
+  const result = word.shiftRight(22).bitXor(word);
+  return result.toFloat().mul(1 / 2 ** 32);
+});
 
 // One starfield layer: cube-projected cells, jittered star per surviving cell.
 const starLayer = /*@__PURE__*/ Fn(([dir, scale, thresh]: [any, any, any]) => {

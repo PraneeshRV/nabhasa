@@ -29,7 +29,19 @@ export function NabhasaCanvas({ tier, children }: { tier: Tier; children: ReactN
   );
 
   return (
-    <Canvas dpr={QUALITY[tier].dpr as any} frameloop="always" camera={{ position: [0, 0, 60], fov: 60 }} gl={gl}>
+    <Canvas
+      dpr={QUALITY[tier].dpr as any}
+      frameloop="always"
+      camera={{ position: [0, 0, 60], fov: 60 }}
+      gl={gl}
+      // WebGPU: R3F's initial resize can land while init() is still pending, leaving
+      // the depth texture at the canvas default 300×150 (GPUValidationError: depth
+      // attachment size mismatch). Re-apply the real size once the renderer exists.
+      onCreated={({ gl: renderer, size, viewport }) => {
+        (renderer as unknown as THREE.WebGPURenderer).setPixelRatio(viewport.dpr);
+        (renderer as unknown as THREE.WebGPURenderer).setSize(size.width, size.height, false);
+      }}
+    >
       {children}
     </Canvas>
   );

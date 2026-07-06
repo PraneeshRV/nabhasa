@@ -89,8 +89,8 @@ export const LICH_SYSTEM: PlanetSpec[] = [
   },
 ];
 
-// Shared ember irradiation tint (art-direction accent; committed value).
-const EMBER = color('#ff7a45');
+// Shared ember irradiation tint (--irradiated token, art-direction.md).
+const EMBER = color('#C46A4A');
 
 export function createPlanetMaterial(spec: PlanetSpec) {
   const mat = new MeshStandardNodeMaterial();

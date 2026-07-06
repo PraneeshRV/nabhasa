@@ -36,7 +36,6 @@ import {
   uniform,
   vec3,
   float,
-  fract,
   sin,
   cos,
   sqrt,
@@ -93,8 +92,15 @@ const SWARM_KEY_POS: readonly [number, number, number] = [
 const SWARM_KEY_INTENSITY = 4; // ponytail: tune live if the glint reads weak or hot
 const SWARM_KEY_DIST = SWARM_RADIUS * 2.4; // ~600wu — covers swarm, not the star
 
-// hash01 → [0,1). Mirror of dysonMath.hash01 (fract(sin) family).
-const tslHash01 = /* @__PURE__ */ Fn(([i]: [any]) => fract(sin(i.mul(127.1).add(311.7)).mul(43758.5453)));
+// hash01 → [0,1). PCG integer hash (scalar), mirroring src/world/Starfield.tsx +
+// src/shaders/lensing.ts hash31 — fract(sin) diverged WGSL vs WebGL2 for large
+// args. Determinism across backends is the goal (spec Task 11 cross-backend parity).
+const tslHash01 = /* @__PURE__ */ Fn(([i]: [any]) => {
+  const state = i.toUint().mul(747796405).add(2891336453);
+  const word = state.shiftRight(state.shiftRight(28).add(4)).bitXor(state).mul(277803737);
+  const result = word.shiftRight(22).bitXor(word);
+  return result.toFloat().mul(1 / 2 ** 32);
+});
 
 // shell index 0..2 + within-shell base index (round-robin, mirror of dysonMath).
 const shellOf = /* @__PURE__ */ Fn(([iid]: [any]) => iid.sub(iid.div(3).floor().mul(3)));

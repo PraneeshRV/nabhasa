@@ -1,20 +1,24 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { NabhasaCanvas } from './core/renderer';
+import { useFrame, useThree } from '@react-three/fiber';
 import { usePerfProbe } from './core/perfProbe';
 import { detectTier, type Tier } from './core/tiers';
 import { QUALITY } from './core/quality';
 import { Starfield } from './world/Starfield';
+import { REGION_PROFILES, useRegion } from './world/regions';
+import type { AmbientLight } from 'three';
 import { NeutronStar, starSpinAngle, starClock } from './world/NeutronStar';
 import { LichPlanets } from './world/LichPlanets';
 import { PulsarBeams } from './signatures/PulsarBeams';
 import { DysonSwarm } from './signatures/DysonSwarm';
 import { CameraRig } from './flight/cameraRig';
+import { attachInput } from './flight/input';
 import { LensingSkybox } from './signatures/LensingSkybox';
 import { CollapsePreloader } from './signatures/CollapsePreloader';
 import { StaticExperience } from './fallback/StaticExperience';
 import { initAudio, setMuted } from './audio/engine';
-import { startAmbient } from './audio/ambient';
-import { initSonify, setActiveSonify } from './audio/sonify';
+import { startAmbient, getAmbient } from './audio/ambient';
+import { initSonify, setActiveSonify, getActiveSonify, noop } from './audio/sonify';
 // Task 14 gate (finding 3): game/courier + score + ResultCard + hudStore + Beacons
 // must NOT load on the mobile route. These were statically imported → they landed
 // in the entry chunk fetched on EVERY route (incl. mobile). React.lazy splits them
@@ -49,7 +53,43 @@ function PerfLogger() {
   return null;
 }
 
+// Region atmosphere (spec Task 5 wiring): the streamed region (Craft pushes
+// regionAt(pos) ~10Hz into useRegionStore) drives renderer exposure + the scene
+// ambient floor +, when audio is armed, the ambient bed gain. Lerps over ~1s via
+// refs — never setState in useFrame. The ambient light is owned HERE: none existed
+// before (only the star pointLight), so nightside planets read fully black vs
+// art-direction's per-region ambient floor. exposure comes from REGION_PROFILES;
+// the renderer's default toneMappingExposure is 1.0 = arrival, so no startup pop.
+function RegionAtmosphere() {
+  const gl = useThree((s) => s.gl);
+  const region = useRegion();
+  const ambRef = useRef<AmbientLight>(null);
+  const cur = useRef({ exp: 1, amb: REGION_PROFILES.arrival.ambientLevel });
+  const tgt = REGION_PROFILES[region];
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 1 / 30);
+    const k = 1 - Math.exp(-dt / 0.3); // ~1s exponential settle
+    cur.current.exp += (tgt.exposure - cur.current.exp) * k;
+    cur.current.amb += (tgt.ambientLevel - cur.current.amb) * k;
+    gl.toneMappingExposure = cur.current.exp;
+    if (ambRef.current) ambRef.current.intensity = cur.current.amb;
+    const amb = getAmbient();
+    if (amb) amb.setBedGain(cur.current.amb);
+  });
+  // ponytail: dim blue-grey floor; the constant intensity is the mount value only
+  // — useFrame owns every subsequent write via ref (region-change re-renders don't
+  // clobber it: the prop is a stable literal). Color is a feel knob.
+  return <ambientLight ref={ambRef} color="#2a3548" intensity={REGION_PROFILES.arrival.ambientLevel} />;
+}
+
 function MainExperience({ tier }: { tier: Tier }) {
+  // Flight input (spec Task 3): attach keyboard/touch once on mount; attachInput
+  // returns its cleanup. Desktop live scene only — mobile film + the static route
+  // never render MainExperience, so kbd never binds there (constraint honored).
+  // Gamepad is polled per physics step inside CraftBody (input.pollGamepad), so no
+  // extra per-frame wiring is needed.
+  useEffect(() => attachInput(document.body), []);
+
   // Sky ownership (spec Task 7 step 3): lensing owns the sky on every lensing tier
   // to avoid a double sky; <Starfield> owns it only on the 'off' (static) tier.
   // Starfield's cubemap bake therefore only runs where it renders — fine while the
@@ -62,6 +102,7 @@ function MainExperience({ tier }: { tier: Tier }) {
       <LichPlanets />
       <PulsarBeams tier={tier} />
       <DysonSwarm tier={tier} />
+      <RegionAtmosphere />
       <Suspense fallback={null}>
         <Beacons />
         <Craft
@@ -136,6 +177,20 @@ function engageAudio() {
 function ExperienceShell({ tier }: { tier: Tier }) {
   const rapierReady = useRapierWarm();
   const [entered, setEntered] = useState(false);
+  // Own the audio graph's lifetime: engageAudio fires in the ENGAGE gesture inside
+  // this shell, so on unmount stop+disconnect the ambient bed + the active sonify
+  // handle (sonify.ts active registry). Reset audioEngaged so a remount re-arms on
+  // the next ENGAGE — otherwise the module guard would leave a returned-to route
+  // silent (the ctx itself stays alive; only ambient/sonify nodes are rebuilt).
+  useEffect(
+    () => () => {
+      getActiveSonify().dispose();
+      setActiveSonify(noop);
+      getAmbient()?.dispose();
+      audioEngaged = false;
+    },
+    [],
+  );
   return (
     <>
       {entered && <MainExperience tier={tier} />}
@@ -188,7 +243,14 @@ function FilmShell({ tier }: { tier: Tier }) {
         tier={tier}
         ready
         onEnter={() => setEntered(true)}
-        onSoundUnlock={() => setSound(true)}
+        onSoundUnlock={() => {
+          // WebAudio MUST unlock inside this gesture (autoplay policy): initAudio
+          // builds the graph + resumes the ctx synchronously HERE. setSound then
+          // arms FlythroughFilm's own ambient/sonify path (idempotent — initAudio
+          // no-ops on its second call). Mirrors ExperienceShell's engageAudio.
+          initAudio();
+          setSound(true);
+        }}
       />
     );
   }
