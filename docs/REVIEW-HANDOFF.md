@@ -119,6 +119,29 @@ dispatches it.
 Strengths confirmed: collapse preloader (honest load signals, audio-consent
 gate), non-modal diegetic panels, failure-recovery engineering.
 
+## UX fix round — 2026-07-10 (commit 4a01265)
+
+Both reviews' P0s + accepted direction items fixed (11 files, +279/−21):
+mission-offer banner + C-ACCEPT hint + offer-expiry on leaving the zone ·
+real Contact links (email/GitHub/LinkedIn/CTFtime) rendered as focusable
+anchors, panel keyboard-scrollable, footer AA contrast · full five-section
+archive on the static tier with identity first · identity line + archive link
+on the mobile film · identity transmission + "read the archive instead" path
+on the ENGAGE gate · approach panel closes only on player fly-away (speed
+gate), not when the world orbits out of range · low-fuel pulse under 20%.
+
+Gates re-run at 4a01265: tsc clean, vitest 110/110, build ✓. Headless runtime
+verify: static archive + all 4 contact hrefs live in DOM; ENGAGE gate shows
+identity + archive link; HUD mounts with C-ACCEPT hint; console error-free
+(only pre-existing THREE.Clock/Rapier deprecation warnings). NOT headless-
+verifiable: the offer banner during live physics (rAF starvation).
+
+Rejected from GPT review (with reason): "Run a courier route" as an equal
+top-level path — elevates the least-finished system onto the front door and
+contradicts the review's own "expert path" framing. Deferred: HUD breathing
+(rest/approach/danger states), delivery beacons tracking live planets
+(test-pinned contract), mission abandon binding, arrival choreography.
+
 ## How to run
 
 ```
