@@ -34,6 +34,7 @@ import { color, float, fract, length, step, uv } from 'three/tsl';
 import { REACH_SYSTEM, createPlanetMaterial, type PlanetSpec } from './planets';
 import { detectTier, type Tier } from '../core/tiers';
 import { QUALITY } from '../core/quality';
+import { JumpGate } from './JumpGate'; // P5b: Threshold jump-gate (self-tracks index 7)
 
 // Planet contract for any consumer (diegetic HUD, etc.). Single source = planets.ts.
 export const PLANETS = REACH_SYSTEM;
@@ -388,6 +389,9 @@ export function LichPlanets() {
       {REACH_SYSTEM.map((spec, i) => (
         <ReachWorld key={spec.name} spec={spec} phase={PHASES[i]} idx={i} k={k} />
       ))}
+      {/* P5b: Threshold jump-gate. Self-tracks Threshold's live pos (idx 7) like
+          Aurora; tier passed from LichPlanets' own detectTier probe. */}
+      <JumpGate tier={tier} />
     </>
   );
 }
