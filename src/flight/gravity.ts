@@ -21,13 +21,14 @@ export function gravityAccel(pos: Vector3, out: Vector3): Vector3 {
   return out.copy(pos).multiplyScalar(k);
 }
 
-// ---- planet gravity (Amendment A1) ------------------------------------------
-// The three Lich bodies perturb the craft with the SAME clamped inverse-square
-// form as the star. Per-planet GM ∝ the REAL mass ratio vs the neutron star
-// (PSR B1257+12 ≈ 1.4 M☉ ≈ 466,124 M⊕): at Poltergeist's surface the pull is
-// ~0.09 wu/s² vs the star's 3.0 at r=300 — planets perturb, never dominate.
-// Honest astrophysics (a few Earth masses are gravity-noise next to a neutron
-// star); bump PLANET_GM_SCALE if the perturbation should read in gameplay.
+// ---- planet gravity (Amendment A1 → A2 Reach system) ------------------------
+// The eight Reach worlds perturb the craft with the SAME clamped inverse-square
+// form as the star. Per-world GM ∝ mass ratio vs the neutron star (PSR B1257+12
+// ≈ 1.4 M☉ ≈ 466,124 M⊕). Masses here are the FICTIONAL gameplay-tuned Reach
+// contract values (planets.ts REACH_SYSTEM), not real — so Corona's 95 M⊕ is
+// only honest because it sits far out (2050 wu): at inner orbits 1/r² makes its
+// pull gravity-noise next to the star, like every world. Planets perturb, never
+// dominate; bump PLANET_GM_SCALE if the perturbation should read in gameplay.
 //
 // gravityAccel (star-only) is UNCHANGED — the orbit test's 1e-6 tolerance stays
 // exact. This separate fn is what the craft step calls with the live planet
@@ -38,12 +39,15 @@ export function gravityAccel(pos: Vector3, out: Vector3): Vector3 {
 // the gravity chunk + its node test.
 const M_SUN_EARTH = 332946; // M☉ in Earth masses
 const M_STAR_EARTH = 1.4 * M_SUN_EARTH; // PSR B1257+12 ≈ 466,124 M⊕
-export const PLANET_GM_SCALE = 1; // 1.0 = true real-ratio perturbation
+export const PLANET_GM_SCALE = 1; // 1.0 = true ratio-scale perturbation
 
-// [Draugr, Poltergeist, Phobetor]; orbit shells 150/260/340 wu (inside
-// PLAY_RADIUS, outside KILL_RADIUS) — mirror planets.ts LICH_SYSTEM.
-export const PLANET_MASS_EARTHS = [0.02, 4.3, 3.9] as const;
-export const PLANET_RADII_WU = [2.2, 5.4, 5.0] as const;
+// [Brace, Praesidium, Aletheia, Kiln, Vesper, Riven, Corona, Threshold];
+// orbit shells 130/260/400/560/1250/1600/2050/2700 wu (inside PLAY_RADIUS,
+// outside KILL_RADIUS) — mirror planets.ts REACH_SYSTEM. Soft radii are the
+// worlds' radiusWu except Threshold (a station, not a sphere): ~6 keeps its
+// collider clamped off the craft (A1 kinematic-collider close-out pattern).
+export const PLANET_MASS_EARTHS = [0.4, 1.0, 0.8, 1.2, 1.1, 0.6, 95, 0.1] as const;
+export const PLANET_RADII_WU = [3.0, 5.0, 4.6, 5.8, 6.2, 5.4, 9.0, 6.0] as const;
 export const PLANET_GMS: readonly number[] = PLANET_MASS_EARTHS.map(
   (m) => (GM_SIM * PLANET_GM_SCALE * m) / M_STAR_EARTH,
 );

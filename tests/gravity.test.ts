@@ -154,3 +154,46 @@ describe('gravityAccelWithPlanets — stability + perturbation magnitude (A1 pat
     expect(speed).toBeLessThan(36);
   });
 });
+
+describe('gravityAccelWithPlanets (Amendment A2 — 8-body Reach system)', () => {
+  // Eight worlds parked at their contract orbit radii along +x. We isolate each
+  // world's perturbation term by running gravityAccelWithPlanets with a
+  // one-element array (star + that world) and subtracting the star-only accel —
+  // |term_i| reduces to GM_i / max(dist_i², softRadius_i²). Near Kiln its term
+  // dominates; Corona (95 M⊕ but at 2050 wu) is negligible vs the nearest world.
+  const orbits = [130, 260, 400, 560, 1250, 1600, 2050, 2700]; // contract table
+  const KILN = 3; // orbit 560, mass 1.2
+  const CORONA = 6; // orbit 2050, mass 95
+  const positions = orbits.map((r) => new Vector3(r, 0, 0));
+
+  const termOf = (craft: Vector3, k: number): number => {
+    const starOnly = new Vector3();
+    gravityAccel(craft.clone(), starOnly);
+    const withWorld = new Vector3();
+    gravityAccelWithPlanets(
+      craft.clone(),
+      withWorld,
+      [positions[k]],
+      [PLANET_GMS[k]],
+      [PLANET_RADII_WU[k]],
+    );
+    return withWorld.sub(starOnly).length();
+  };
+
+  it('near Kiln (560), Kiln dominates every other world perturbation term', () => {
+    // Craft just outside Kiln's surface on the starward side (dist 6.8 > soft 5.8).
+    const craft = new Vector3(orbits[KILN] - PLANET_RADII_WU[KILN] - 1, 0, 0);
+    const kilnTerm = termOf(craft, KILN);
+    for (let k = 0; k < orbits.length; k++) {
+      if (k === KILN) continue;
+      expect(termOf(craft, k)).toBeLessThan(kilnTerm);
+    }
+  });
+
+  it("Corona (95 M⊕ at 2050) ≪ nearest world's term — mass scales GM, 1/r² kills it", () => {
+    const craft = new Vector3(orbits[KILN] - PLANET_RADII_WU[KILN] - 1, 0, 0);
+    const kilnTerm = termOf(craft, KILN);
+    const coronaTerm = termOf(craft, CORONA);
+    expect(coronaTerm).toBeLessThan(kilnTerm * 0.01); // <1% of nearest-world term
+  });
+});
