@@ -32,6 +32,12 @@ const Telemetry = lazy(() => import('./hud/Telemetry').then((m) => ({ default: m
 const HudSampler = lazy(() => import('./hud/hudStore').then((m) => ({ default: m.HudSampler })));
 const MissionResult = lazy(() => import('./hud/MissionResult').then((m) => ({ default: m.MissionResult })));
 const Beacons = lazy(() => import('./signatures/Beacons').then((m) => ({ default: m.Beacons })));
+// A2 P3b: approach-triggered portfolio panel. ApproachSampler (useFrame leaf, 5Hz)
+// mounts in-canvas next to HudSampler; ApproachPanel is the DOM overlay (mounted
+// next to Telemetry in ExperienceShell). Lazy like HudSampler/Telemetry so neither
+// the sampler's world deps nor the panel reach the mobile/static chunks.
+const ApproachSampler = lazy(() => import('./hud/approachStore').then((m) => ({ default: m.ApproachSampler })));
+const ApproachPanel = lazy(() => import('./hud/ApproachPanel').then((m) => ({ default: m.ApproachPanel })));
 
 // ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
@@ -113,6 +119,7 @@ function MainExperience({ tier }: { tier: Tier }) {
         <Beacons />
         <Craft />
         <HudSampler />
+        <ApproachSampler />
       </Suspense>
       <CameraRig />
       <PerfLogger />
@@ -197,6 +204,7 @@ function ExperienceShell({ tier }: { tier: Tier }) {
         <Suspense fallback={null}>
           <Telemetry />
           <MissionResult />
+          <ApproachPanel />
         </Suspense>
       )}
       {!entered && (

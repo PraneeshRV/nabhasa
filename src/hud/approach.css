@@ -1,0 +1,138 @@
+/* Approach-triggered portfolio panel (A2 P3b). DOM overlay — same layer + token
+   idiom as hud.css, but its own file (hud.css belongs to Telemetry, out of P3b's
+   scope). Typography: Space Grotesk display / Inter body / JetBrains Mono kicker
+   (art-direction typography table). One hot accent (--star-hot) reserved for the
+   world-name kicker — the panel's single "active" UI signal, like hud-pulse; all
+   reading copy is --ui-cold/--ui-dim. */
+
+.approach-root {
+  /* art-direction palette (single-sourced for this layer, same hexes as hud.css) */
+  --void: #030407;
+  --star-hot: #afe3ff;
+  --ui-cold: #8a93a6;
+  --ui-dim: #3a4150;
+  --font-display: 'Space Grotesk', system-ui, 'Segoe UI', sans-serif; /* ponytail: no woff2 this pass — stack + flag, mirrors hud.css */
+  --font-body: 'Inter', system-ui, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  position: fixed;
+  inset: 0;
+  z-index: 20; /* same overlay layer as .hud-root */
+  pointer-events: none; /* never block the canvas / flight input */
+  font-family: var(--font-body);
+  color: var(--ui-cold);
+}
+
+.approach-panel {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  transform: translate(0, -50%);
+  width: min(400px, 92vw);
+  max-height: min(80vh, 720px);
+  overflow-y: auto;
+  padding: 22px 24px 18px;
+  background: rgba(3, 4, 7, 0.72); /* darker than hud-cluster for reading copy */
+  border: 1px solid var(--ui-dim);
+  border-radius: 2px;
+  /* WCAG AA: --ui-cold #8a93a6 on rgba(3,4,7,.72) ⇒ ratio ≈6.6:1 ✓ (body 16px) */
+  opacity: 1;
+  will-change: transform, opacity;
+}
+
+/* Slide-in 300ms (plan §P3). Runs on mount (the panel unmounts on dismiss).
+   Resting state above is the visible end-state, so a disabled animation still
+   shows the panel correctly (reduced-motion ⇒ instant). */
+.approach-panel.is-open {
+  animation: approach-in 0.3s ease-out;
+}
+@keyframes approach-in {
+  from {
+    opacity: 0;
+    transform: translate(28px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
+.approach-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--ui-dim);
+}
+.approach-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--star-hot); /* the one hot UI accent — the active-world signal */
+  text-transform: uppercase;
+}
+.approach-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(24px, 3.4vw, 30px);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--ui-cold);
+  /* copy authored verbatim in portfolio.json (single source) — no forced case */
+}
+.approach-myth {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ui-dim);
+  font-style: italic;
+}
+
+.approach-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 0 6px;
+}
+.approach-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.approach-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--ui-cold);
+}
+.approach-body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ui-cold);
+}
+
+.approach-foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ui-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ui-dim);
+  text-transform: uppercase;
+  text-align: right;
+}
+
+/* Reduced-motion floor (plan §P3 + art-direction): slide-in ⇒ instant.
+   Mirrors hud.css's reduced-motion guard. */
+@media (prefers-reduced-motion: reduce) {
+  .approach-panel.is-open {
+    animation: none;
+  }
+}
