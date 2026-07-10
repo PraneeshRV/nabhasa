@@ -40,7 +40,10 @@ export function ApproachPanel() {
     if (!slot) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        useApproachStore.getState().set({ open: false, slot: null, world: null });
+        const s = useApproachStore.getState();
+        // record the dismissed world so the sampler doesn't re-open it while the
+        // craft is still in range; unpin so proximity logic resumes.
+        s.set({ open: false, slot: null, world: null, dismissed: s.world, pinned: false });
       }
     };
     window.addEventListener('keydown', onKey);

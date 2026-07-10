@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCourierStore, missionById, computeScore, type FailReason } from '../game/courier';
 import { loadScores, saveScore } from '../game/score';
 import { ResultCard } from '../game/ResultCard';
+import { useApproachStore } from './approachStore';
 
 const ACCENT = '#AFE3FF';
 // ResultCard's buttons have no className + no focus style; scope a ring to this
@@ -83,6 +84,23 @@ export function MissionResult() {
   useEffect(() => {
     if (!delivered) scoredFor.current = null;
   }, [delivered]);
+
+  // Finale (m5-gate): open the Contact panel event-driven — the live Threshold
+  // drifts far from the fixed delivery beacon, so proximity can never trigger it.
+  // Opens when the m5 result card is DISMISSED (not while it shows): both dialogs
+  // listen for ESC on window, so opening alongside the card would let one ESC kill
+  // both. pinned keeps the 5Hz sampler from closing it; ESC then dismisses it.
+  const finaleArmed = useRef(false);
+  useEffect(() => {
+    if (delivered && mission?.id === 'm5-gate') {
+      finaleArmed.current = true;
+    } else if (!delivered && finaleArmed.current) {
+      finaleArmed.current = false;
+      useApproachStore
+        .getState()
+        .set({ open: true, slot: 'Contact', world: 'Threshold', pinned: true });
+    }
+  }, [delivered, mission]);
 
   // Dismiss (Escape) + Tab focus trap (finding 5). Move focus into the dialog on
   // open, keep Tab inside it (wrap first↔last), and restore focus to the element

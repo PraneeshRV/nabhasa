@@ -36,6 +36,7 @@
   border: 1px solid var(--ui-dim);
   border-radius: 2px;
   /* WCAG AA: --ui-cold #8a93a6 on rgba(3,4,7,.72) ⇒ ratio ≈6.6:1 ✓ (body 16px) */
+  pointer-events: auto; /* panel itself is interactive (text select, Contact links); root stays none */
   opacity: 1;
   will-change: transform, opacity;
 }

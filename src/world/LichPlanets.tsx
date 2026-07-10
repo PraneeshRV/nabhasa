@@ -20,12 +20,14 @@
 // untouched" / "no new deps"). The A1 close-out fix keeps ONE collider proxy in
 // Craft, ONE hull here.
 //
-// QUALITY tier: LichPlanets mounts with no tier prop (App.tsx renders
-// <LichPlanets/>), so it probes detectTier() once on mount (cached, idempotent —
-// mirrors App's own probe) and scales the only count-heavy props (debris belt,
-// antenna farm) by a multiplier derived from the existing QUALITY swarm-count
-// ratios. Moons are lore-fixed (1 / 3) and never scaled. static ⇒ multiplier 0
-// (LichPlanets never mounts on static anyway: App routes it to StaticExperience).
+// QUALITY tier: App passes its resolved tier as a prop (<LichPlanets tier={tier}/>)
+// — no re-probe, no wrong-tier transient. The internal detectTier() self-probe
+// (NOT cached — tiers.ts re-runs the adapter request per call) survives only as a
+// prop-absent fallback, starting at null so count-heavy props (debris belt,
+// antenna farm) render at multiplier 0 until the tier is known. Counts scale by
+// the QUALITY swarm-count ratios. Moons are lore-fixed (1 / 3) and never scaled.
+// static ⇒ multiplier 0 (LichPlanets never mounts on static anyway: App routes it
+// to StaticExperience).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -128,8 +130,14 @@ function SphereBody({ spec }: { spec: PlanetSpec }) {
       <mesh material={material}>
         <sphereGeometry args={[spec.radiusWu, 96, 96]} />
       </mesh>
-      {/* Kiln space-elevator: anchored to the surface, co-rotates with the axis. */}
-      {spec.props?.tether ? <Tether spec={spec} /> : null}
+      {/* Kiln space-elevator: anchored to the surface, co-rotates with the axis.
+          Its ring co-rotates too, so the tether's ring-anchor never sweeps away. */}
+      {spec.props?.tether ? (
+        <>
+          <Tether spec={spec} />
+          {spec.props?.ring ? <Ring spec={spec} /> : null}
+        </>
+      ) : null}
     </group>
   );
 }
@@ -362,7 +370,8 @@ function ReachWorld({
         ) : (
           <SphereBody spec={spec} />
         )}
-        {spec.props?.ring ? <Ring spec={spec} /> : null}
+        {/* tethered ring (Kiln) mounts inside SphereBody's spin group instead */}
+        {spec.props?.ring && !spec.props?.tether ? <Ring spec={spec} /> : null}
         {spec.props?.moons ? <Moons spec={spec} /> : null}
         {spec.props?.debris ? <Debris spec={spec} k={k} /> : null}
       </group>
@@ -370,19 +379,22 @@ function ReachWorld({
   );
 }
 
-export function LichPlanets() {
-  // App passes no tier prop; probe once (cached, idempotent) to scale prop counts.
-  const [tier, setTier] = useState<Tier>('webgpu-high');
+export function LichPlanets({ tier: tierProp }: { tier?: Tier }) {
+  // Prop-first: App already resolved the tier. Self-probe is fallback only,
+  // starting at null → multiplier 0 (no wrong-count pop-in while resolving).
+  const [probed, setProbed] = useState<Tier | null>(null);
   useEffect(() => {
+    if (tierProp) return;
     let alive = true;
     detectTier().then((t) => {
-      if (alive) setTier(t);
+      if (alive) setProbed(t);
     });
     return () => {
       alive = false;
     };
-  }, []);
-  const k = TIER_K[tier];
+  }, [tierProp]);
+  const tier = tierProp ?? probed;
+  const k = tier ? TIER_K[tier] : 0;
 
   return (
     <>
@@ -390,8 +402,9 @@ export function LichPlanets() {
         <ReachWorld key={spec.name} spec={spec} phase={PHASES[i]} idx={i} k={k} />
       ))}
       {/* P5b: Threshold jump-gate. Self-tracks Threshold's live pos (idx 7) like
-          Aurora; tier passed from LichPlanets' own detectTier probe. */}
-      <JumpGate tier={tier} />
+          Aurora; mounts only once the tier is resolved (prop-first) so webgl2
+          never renders the webgpu-only fold disc transiently. */}
+      {tier ? <JumpGate tier={tier} /> : null}
     </>
   );
 }

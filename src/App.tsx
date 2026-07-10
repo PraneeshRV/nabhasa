@@ -110,7 +110,7 @@ function MainExperience({ tier }: { tier: Tier }) {
     <NabhasaCanvas tier={tier}>
       {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
       <NeutronStar />
-      <LichPlanets />
+      <LichPlanets tier={tier} />
       <Aurora tier={tier} />
       <PulsarBeams tier={tier} />
       <DysonSwarm tier={tier} />

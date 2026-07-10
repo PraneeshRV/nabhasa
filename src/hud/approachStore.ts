@@ -25,6 +25,13 @@ export interface ApproachState {
   open: boolean;
   slot: Slot | null;
   world: string | null;
+  // ESC-dismissed world name: the sampler must not re-open this world while the
+  // craft is still inside APPROACH_RADIUS; cleared once the craft leaves range.
+  dismissed: string | null;
+  // Event-opened panel (m5 finale Contact): the live Threshold drifts far from
+  // the fixed delivery beacon, so proximity can neither open nor close it — the
+  // sampler skips entirely while pinned; ESC is the only dismiss.
+  pinned: boolean;
   set: (s: Partial<ApproachState>) => void;
 }
 
@@ -32,6 +39,8 @@ export const useApproachStore = create<ApproachState>((set) => ({
   open: false,
   slot: null,
   world: null,
+  dismissed: null,
+  pinned: false,
   set: (s) => set(s),
 }));
 
@@ -52,15 +61,18 @@ export function ApproachSampler() {
 
     const near = nearestContentWorld(craftState.pos);
     const store = useApproachStore.getState();
+    if (store.pinned) return; // event-opened finale panel: proximity hands off, ESC owns dismiss
     if (near && near.dist < APPROACH_RADIUS) {
+      if (store.dismissed === near.name) return; // ESC'd this world; stays shut until out of range
       // nearestContentWorld.slot is widened to string; only content-bearing worlds
       // (contentSlot union) reach here, so the cast is sound.
       const slot = near.slot as Slot;
       if (!(store.open && store.slot === slot && store.world === near.name)) {
-        store.set({ open: true, slot, world: near.name });
+        // opening a different world also clears any stale dismissal
+        store.set({ open: true, slot, world: near.name, dismissed: null });
       }
-    } else if (store.open) {
-      store.set({ open: false, slot: null, world: null });
+    } else if (store.open || store.dismissed) {
+      store.set({ open: false, slot: null, world: null, dismissed: null });
     }
   });
   return null;
