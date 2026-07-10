@@ -9,6 +9,7 @@ import { REGION_PROFILES, useRegion } from './world/regions';
 import type { AmbientLight } from 'three';
 import { NeutronStar, starSpinAngle, starClock } from './world/NeutronStar';
 import { LichPlanets } from './world/LichPlanets';
+import { Aurora } from './world/Aurora';
 import { PulsarBeams } from './signatures/PulsarBeams';
 import { DysonSwarm } from './signatures/DysonSwarm';
 import { CameraRig } from './flight/cameraRig';
@@ -104,6 +105,7 @@ function MainExperience({ tier }: { tier: Tier }) {
       {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
       <NeutronStar />
       <LichPlanets />
+      <Aurora tier={tier} />
       <PulsarBeams tier={tier} />
       <DysonSwarm tier={tier} />
       <RegionAtmosphere />
