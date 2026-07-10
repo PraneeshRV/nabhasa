@@ -20,12 +20,17 @@ interface Block {
   heading: string;
   body: string;
 }
+interface SectionLink {
+  label: string;
+  href: string;
+}
 interface PortfolioSection {
   slot: Slot;
   world: string;
   headline: string;
   myth: string;
   blocks: Block[];
+  links?: SectionLink[]; // Contact only — the diegetic CTA channels
 }
 
 const SECTIONS = PORTFOLIO as unknown as Record<Slot, PortfolioSection>;
@@ -59,6 +64,7 @@ export function ApproachPanel() {
         className={`approach-panel${open ? ' is-open' : ''}`}
         role="region"
         aria-label={`${section.world} — ${section.slot}`}
+        tabIndex={0} /* panel is overflow-y:auto — focusable so keyboard users can scroll it */
       >
         <header className="approach-head">
           <span className="approach-kicker">{section.world.toUpperCase()}</span>
@@ -76,6 +82,22 @@ export function ApproachPanel() {
             </section>
           ))}
         </div>
+
+        {section.links && (
+          <nav className="approach-links" aria-label="Contact channels">
+            {section.links.map((l) => (
+              <a
+                key={l.href}
+                className="approach-link"
+                href={l.href}
+                target={l.href.startsWith('http') ? '_blank' : undefined}
+                rel="noreferrer"
+              >
+                {l.label}
+              </a>
+            ))}
+          </nav>
+        )}
 
         <footer className="approach-foot">ESC · FLY AWAY TO DISMISS</footer>
       </aside>

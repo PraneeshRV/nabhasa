@@ -274,6 +274,14 @@ export function tick(prev: CourierState, ctx: TickCtx): { state: CourierState; e
     if (s.status === 'offered') events.push('offered');
   }
 
+  // An offer expires when the craft leaves the offer zone — otherwise `offered`
+  // sticks forever and C "accepts" a mission whose beacon is out of sight
+  // (UX finding). Re-entering the zone re-offers via missionToOffer above.
+  if (s.status === 'offered' && s.missionId) {
+    const m = missionById(s.missionId);
+    if (m && dist(m.from, ctx.pos) > OFFER_RADIUS) s = reduce(s, { type: 'decline' });
+  }
+
   if (s.status === 'active') {
     s = reduce(s, { type: 'drain', dt: ctx.dt, thrust: ctx.thrust });
     if (s.status === 'failed') {

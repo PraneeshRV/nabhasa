@@ -47,6 +47,10 @@ export const useApproachStore = create<ApproachState>((set) => ({
 // ~5Hz cadence (half the HUD's 10Hz — proximity changes slowly).
 const APPROACH_DT = 1 / 5;
 
+// Fly-away threshold (wu/s): below this the craft counts as "reading, parked".
+// ponytail: coarse scalar gate, upgrade to distance-trend if parked-drift cases appear
+const FLYAWAY_SPEED = 2;
+
 // Null-rendering sampler leaf. Mounted in <NabhasaCanvas> next to <HudSampler/>.
 // Reads craftState.pos (the same leaf hudStore's sampler reads), calls
 // nearestContentWorld, and writes the store only on a real change so the DOM
@@ -71,7 +75,10 @@ export function ApproachSampler() {
         // opening a different world also clears any stale dismissal
         store.set({ open: true, slot, world: near.name, dismissed: null });
       }
-    } else if (store.open || store.dismissed) {
+    } else if ((store.open || store.dismissed) && craftState.speed > FLYAWAY_SPEED) {
+      // Close/clear only when the PLAYER flies away. Content worlds orbit live
+      // (~11.6 wu/s for Praesidium), so a braked reader would otherwise lose the
+      // panel mid-paragraph as the planet sweeps out of range on its own.
       store.set({ open: false, slot: null, world: null, dismissed: null });
     }
   });

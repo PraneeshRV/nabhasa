@@ -118,14 +118,40 @@
   color: var(--ui-cold);
 }
 
+.approach-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--ui-dim);
+}
+.approach-link {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--star-hot); /* the one accent — earned: these ARE the CTA */
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  width: fit-content;
+}
+.approach-link:hover,
+.approach-link:focus-visible {
+  border-bottom-color: var(--star-hot);
+  outline: none;
+}
+.approach-link:focus-visible {
+  outline: 2px solid var(--star-hot);
+  outline-offset: 3px;
+}
+
 .approach-foot {
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid var(--ui-dim);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
-  color: var(--ui-dim);
+  color: var(--ui-cold); /* was --ui-dim — fails AA (~2:1) as text */
   text-transform: uppercase;
   text-align: right;
 }

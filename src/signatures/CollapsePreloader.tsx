@@ -349,7 +349,7 @@ function EngageGate({ show, onEnter }: { show: boolean; onEnter: (sound: boolean
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        paddingBottom: '14vh',
+        paddingBottom: '10vh',
         gap: '0.75rem',
         pointerEvents: show ? 'auto' : 'none',
         opacity: show ? 1 : 0,
@@ -357,6 +357,33 @@ function EngageGate({ show, onEnter }: { show: boolean; onEnter: (sound: boolean
         zIndex: 2,
       }}
     >
+      {/* Identity transmission (direction review): the visitor learns whose
+          system this is BEFORE choosing how to enter — orientation inside the
+          fiction, not a bolted-on intro. */}
+      <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+        <div
+          style={{
+            fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+            fontSize: '13px',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: '#AFE3FF',
+            marginBottom: '0.5rem',
+          }}
+        >
+          Praneesh R V · AI red teamer
+        </div>
+        <div
+          style={{
+            fontFamily: '"Space Grotesk", system-ui, sans-serif',
+            fontSize: '15px',
+            letterSpacing: '0.04em',
+            color: '#8A93A6',
+          }}
+        >
+          I break AI agents. This system is the proof.
+        </div>
+      </div>
       <button
         ref={primaryRef}
         onClick={() => onEnter(true)}
@@ -367,6 +394,23 @@ function EngageGate({ show, onEnter }: { show: boolean; onEnter: (sound: boolean
       <button onClick={() => onEnter(false)} style={engageBtn(false)}>
         enter silent
       </button>
+      {/* The non-flight path (direction review + UX P1): time-poor visitors read
+          the same content the worlds carry, without learning 6DOF flight. */}
+      <a
+        href="?forceTier=static"
+        style={{
+          fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+          fontSize: '11px',
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: '#8A93A6',
+          textDecoration: 'underline',
+          textUnderlineOffset: '4px',
+          marginTop: '0.25rem',
+        }}
+      >
+        read the archive instead
+      </a>
     </div>
   );
 }

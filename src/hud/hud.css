@@ -98,6 +98,25 @@
   padding: 6px 14px;
 }
 
+/* Mission-offer banner — same top-center slot as the transit banner (never both:
+   Telemetry suppresses the offer line during a transit). --ui-cold body with the
+   accent border: an invitation, not an alarm. */
+.hud-offer {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ui-cold);
+  text-transform: uppercase;
+  background: rgba(3, 4, 7, 0.55);
+  border: 1px solid var(--ui-dim);
+  border-radius: 2px;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+
 /* Respawn white-in veil: 600 ms ramp driven by killFlash (0..1) at 10 Hz.
    Sanctioned single-pulse (spec Task 6 kill sequence); <3 Hz. */
 .hud-veil {

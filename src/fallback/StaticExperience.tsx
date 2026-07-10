@@ -19,6 +19,20 @@ import {
   surfaceGravity,
 } from '../hud/physics-data';
 import { LICH_SYSTEM } from '../world/planets';
+import PORTFOLIO from '../content/portfolio.json';
+
+// The portfolio archive — SAME single source as the live approach panels
+// (content parity is the point of this page, and it was missing: UX P0).
+const ARCHIVE_ORDER = ['About', 'Research', 'Projects', 'Experience', 'Contact'] as const;
+interface ArchiveSection {
+  slot: string;
+  world: string;
+  headline: string;
+  myth: string;
+  blocks: { heading: string; body: string }[];
+  links?: { label: string; href: string }[];
+}
+const ARCHIVE = PORTFOLIO as unknown as Record<string, ArchiveSection>;
 
 // ── Real values, derived from the live module so the page never drifts ──────
 const C_MPS = 2.998e8; // speed of light, m/s (matches physics-data.ts)
@@ -205,12 +219,80 @@ export function StaticExperience() {
           >
             Nabhasa
           </h1>
+          {/* Identity first (direction review): the visitor learns WHOSE site this
+              is before any astrophysics. */}
+          <p
+            style={{
+              margin: '0 0 0.5rem',
+              fontFamily: F.mono,
+              fontSize: '13px',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: C.starHot,
+            }}
+          >
+            Praneesh R V · AI red teamer
+          </p>
+          <p style={{ margin: '0 0 1.25rem', fontFamily: F.display, fontSize: '1.2rem', color: C.cold }}>
+            I break AI agents.
+          </p>
           <p style={{ margin: 0, fontSize: '1rem', maxWidth: '32em', marginInline: 'auto' }}>
-            A neutron-star system you can fly through. This is the reduced-motion experience — the
-            live flight needs animation and a WebGPU-capable browser. Every fact below is the real
-            astrophysics, readable as text.
+            A neutron-star system that is also my portfolio. This is the reduced-motion
+            experience — the live flight needs animation and a WebGPU-capable browser. Everything
+            the flight carries is below: the archive first, then the real astrophysics.
           </p>
         </header>
+
+        {/* ── The archive: all five portfolio sections, same source as the live
+            approach panels (src/content/portfolio.json). ── */}
+        {ARCHIVE_ORDER.map((slot) => {
+          const sec = ARCHIVE[slot];
+          if (!sec) return null;
+          return (
+            <section key={slot} aria-labelledby={`archive-${slot}`} style={{ marginBottom: '3.5rem' }}>
+              <h2 id={`archive-${slot}`} style={sectionHeading}>
+                {sec.headline}
+              </h2>
+              <p style={{ margin: '0 0 1rem' }}>
+                <MicroLabel>
+                  {slot} · {sec.world}
+                </MicroLabel>
+              </p>
+              {sec.blocks.map((b) => (
+                <div key={b.heading} style={{ margin: '0 0 1.1rem' }}>
+                  <h3
+                    style={{
+                      margin: '0 0 0.35rem',
+                      fontFamily: F.display,
+                      fontWeight: 500,
+                      fontSize: '1.05rem',
+                      color: C.cold,
+                    }}
+                  >
+                    {b.heading}
+                  </h3>
+                  <p style={{ ...body, margin: 0 }}>{b.body}</p>
+                </div>
+              ))}
+              {sec.links && (
+                <ul style={{ listStyle: 'none', padding: 0, margin: '1.25rem 0 0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {sec.links.map((l) => (
+                    <li key={l.href}>
+                      <a
+                        href={l.href}
+                        target={l.href.startsWith('http') ? '_blank' : undefined}
+                        rel="noreferrer"
+                        style={{ fontFamily: F.mono, fontSize: '13px', letterSpacing: '0.06em', color: C.starHot }}
+                      >
+                        {l.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })}
 
         {/* Static system-status summary (spec Task 15 step 2). A labeled region,
             not a live-updating HUD: nothing here changes, so it needs no aria-live. */}

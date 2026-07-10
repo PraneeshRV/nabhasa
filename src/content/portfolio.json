@@ -58,8 +58,8 @@
         "body": "My AI-powered pentesting tool, mid clean-room 2.0 revamp. The offensive-security flagship — where agent-assisted building meets a real red-team workflow."
       },
       {
-        "heading": "Dying Star",
-        "body": "This portfolio — a space-themed interactive site, and my most-worked project. You are flying through it right now."
+        "heading": "Nabhasa",
+        "body": "This portfolio — a flyable neutron-star system, and my most-worked project (built under the codename Dying Star). You are flying through it right now."
       },
       {
         "heading": "L3m0nCTF 2025",
@@ -103,8 +103,14 @@
     "blocks": [
       {
         "heading": "Send word outward",
-        "body": "Hiring, collaborating, or want to break agents together? Send word through the gate. [Praneesh: confirm contact links — email, GitHub, LinkedIn, CTFtime handle]."
+        "body": "Hiring, collaborating, or want to break agents together? Send word through the gate — every channel below reaches me."
       }
+    ],
+    "links": [
+      { "label": "Email — praneeshrv404@gmail.com", "href": "mailto:praneeshrv404@gmail.com" },
+      { "label": "GitHub — PraneeshRV", "href": "https://github.com/PraneeshRV" },
+      { "label": "LinkedIn — Praneesh R V", "href": "https://www.linkedin.com/in/praneesh-r-v-3a81b221a" },
+      { "label": "CTFtime — Team Hunter", "href": "https://ctftime.org/team/375677" }
     ]
   }
 }

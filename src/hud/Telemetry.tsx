@@ -20,8 +20,8 @@ import './hud.css';
 const TRAN_THRESHOLD = 0.4; // beamState.transit above this ⇒ "RADIATION TRANSIT"
 
 const HINTS: Record<InputSource, string> = {
-  kbd: 'WASD THRUST · ↑↓ PITCH · ←→ YAW · Q/E ROLL · SHIFT BOOST · SPACE BRAKE',
-  pad: 'STICKS MOVE/LOOK · RB BOOST · LB BRAKE · A INTERACT',
+  kbd: 'WASD THRUST · ↑↓ PITCH · ←→ YAW · Q/E ROLL · SHIFT BOOST · SPACE BRAKE · C ACCEPT',
+  pad: 'STICKS MOVE/LOOK · RB BOOST · LB BRAKE · A ACCEPT',
   touch: 'LEFT HALF THRUST/STRAFE · RIGHT HALF LOOK',
 };
 
@@ -91,7 +91,7 @@ export function Telemetry() {
         </div>
         <div className="hud-row">
           <span className="hud-label">Fuel</span>
-          <span className="hud-val">{pct(s.fuel)}%</span>
+          <span className={`hud-val${s.lowFuel ? ' hud-pulse' : ''}`}>{pct(s.fuel)}%</span>
         </div>
       </div>
 
@@ -117,6 +117,11 @@ export function Telemetry() {
       </div>
 
       {transit && <div className="hud-transit">▲ Radiation Transit</div>}
+
+      {/* Mission offer banner (UX P0): the offered state was invisible — the whole
+          courier chain was undiscoverable. Suppressed during a beam transit so the
+          two top-center banners never stack. */}
+      {!transit && s.offer && <div className="hud-offer">◆ {s.offer}</div>}
 
       <KillVeil opacity={s.killFlash} />
       <CraftCursor />

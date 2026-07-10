@@ -329,6 +329,34 @@ export function FlythroughFilm({ tier, sound }: { tier: Tier; sound: boolean }) 
         }}
       />
 
+      {/* Identity + archive path (UX P0: the film carried zero portfolio content —
+          a mobile recruiter could watch it all and never learn whose site this is).
+          stopPropagation so tapping the link never starts a scrub drag. */}
+      <div
+        style={{
+          position: 'absolute',
+          right: 14,
+          top: 14,
+          textAlign: 'right',
+          font: '11px/1.6 "JetBrains Mono", ui-monospace, monospace',
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+        }}
+      >
+        <div style={{ color: '#8A93A6' }}>Praneesh R V · AI red teamer</div>
+        <a
+          href="?forceTier=static"
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            color: '#AFE3FF', // --star-hot — the one accent; this IS the CTA
+            textDecoration: 'underline',
+            textUnderlineOffset: '4px',
+          }}
+        >
+          read the archive
+        </a>
+      </div>
+
       {/* Progress rail — the only scrub affordance. Fills --star-hot to p. */}
       <div
         style={{

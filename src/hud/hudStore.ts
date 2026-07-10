@@ -12,7 +12,7 @@ import { create } from 'zustand';
 import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { craftState } from '../flight/craftState';
-import { useCourierStore, missionById } from '../game/courier'; // spec Task 12 — mission label in the HUD
+import { useCourierStore, missionById, fuelFraction } from '../game/courier'; // spec Task 12 — mission label in the HUD
 import { beamState } from '../signatures/PulsarBeams';
 import { subscribeSwarmFlare } from '../signatures/DysonSwarm';
 import { getActiveSonify, setActiveSonify, noop } from '../audio/sonify';
@@ -47,8 +47,10 @@ export interface HudState extends TelemetryTick {
   dilationSurface: number; // timeDilation(10 km): clock rate at the surface (const)
   surfaceG: number; // surfaceGravity() m/s² (const)
   mission: string | null; // active mission label (Task 12 courier pushes via setMission)
+  offer: string | null; // offered-mission banner line (UX P0: the offer was invisible)
+  lowFuel: boolean; // active mission under 20% budget — HUD warns before the hard fail
   pushTelemetry: (t: TelemetryTick) => void;
-  setMission: (label: string | null) => void;
+  setCourier: (mission: string | null, offer: string | null, lowFuel: boolean) => void;
 }
 
 export const useHudStore = create<HudState>((set) => ({
@@ -63,8 +65,10 @@ export const useHudStore = create<HudState>((set) => ({
   dilationSurface: timeDilation(10), // ≈0.766 — computed once (const for the session)
   surfaceG: surfaceGravity(), // ≈1.86e12 m/s² — computed once
   mission: null,
+  offer: null,
+  lowFuel: false,
   pushTelemetry: (t) => set(t), // shallow merge ⇒ mission + consts preserved
-  setMission: (mission) => set({ mission }),
+  setCourier: (mission, offer, lowFuel) => set({ mission, offer, lowFuel }),
 }));
 
 // 10Hz sampler. useFrame is the existing per-frame loop; we accumulate dt and
@@ -110,20 +114,27 @@ export function HudSampler() {
     getActiveSonify().update({ rKm, beamAlignment: beamState.transit, flare: flare.current });
     flare.current = false;
 
-    // Courier mission line (spec Task 12): active-mission label + live distance
-    // to the objective beacon (1 wu = 1 km). Uses the existing setMission pattern
-    // → the Telemetry TR row shows it in JetBrains Mono / --ui-cold. null hides
-    // the row when no mission is active.
+    // Courier lines (spec Task 12 + UX P0 fix): active-mission label + live
+    // distance for the TR row; offered-mission banner line (top-center); low-fuel
+    // flag. One setCourier write, nulls hide the rows.
     const cs = useCourierStore.getState();
     let mission: string | null = null;
+    let offer: string | null = null;
+    let lowFuel = false;
     if (cs.status === 'active' && cs.missionId) {
       const m = missionById(cs.missionId);
       if (m) {
         const d = Math.hypot(craftState.pos.x - m.to[0], craftState.pos.y - m.to[1], craftState.pos.z - m.to[2]);
         mission = `${m.name} · ${Math.round(d)} km`;
+        lowFuel = fuelFraction(cs) < 0.2; // warn before the hard FUEL DEPLETED fail
       }
+    } else if (cs.status === 'offered' && cs.missionId) {
+      // UX P0: the offered state previously rendered nothing anywhere — the whole
+      // mission chain was undiscoverable. Surface it as a top-center banner line.
+      const m = missionById(cs.missionId);
+      if (m) offer = `${m.name} · press C to accept`;
     }
-    useHudStore.getState().setMission(mission);
+    useHudStore.getState().setCourier(mission, offer, lowFuel);
   });
   return null;
 }
