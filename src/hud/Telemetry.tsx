@@ -43,7 +43,7 @@ export function Telemetry() {
       <div className="hud-cluster hud-tl">
         <div className="hud-row">
           <span className="hud-label">Pulsar</span>
-          <span className="hud-val">{PULSAR.name}</span>
+          <span className="hud-val">THE EMBER · {PULSAR.name}</span>
         </div>
         <div className="hud-row">
           <span className="hud-label">Spin</span>

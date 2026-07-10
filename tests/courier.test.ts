@@ -181,7 +181,7 @@ describe('proximity sensing', () => {
     for (let i = 0; i < MISSIONS.length - 1; i++) {
       expect(MISSIONS[i].to).toEqual(MISSIONS[i + 1].from);
     }
-    expect(missionById(MISSIONS[4].id)?.name).toBe('Swarm Thread');
+    expect(missionById(MISSIONS[4].id)?.name).toBe('To the Door');
   });
 });
 

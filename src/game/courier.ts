@@ -13,7 +13,6 @@
 // Missions never lock free flight: idle = untouched tank (fuel stays 1).
 
 import { create } from 'zustand';
-import { SWARM_CENTER } from '../world/scale';
 
 export type Vec3 = readonly [number, number, number];
 
@@ -60,70 +59,74 @@ export const FUEL_DRAIN_RATE = 0.01;
 export const OFFER_RADIUS = 40;
 export const DELIVER_RADIUS = 25;
 
-// ---- planet-anchored waypoints (Amendment A1) -------------------------------
-// Inner-system beacons sit ON the Lich planets' compressed orbit shells at
-// fixed azimuths — deliveries route Draugr → Poltergeist → Phobetor. SNAPSHOT
+// ---- world-anchored waypoints (Amendment A2) --------------------------------
+// Beacons sit ON the Reach worlds' orbit shells at fixed azimuths — Kindled
+// deliveries route Praesidium → Aletheia → Kiln → Vesper → Threshold (the canon
+// content-world sentence, skipping eye-candy Brace/Riven/Corona). SNAPSHOT
 // constants (not live positions): the FSM stays pure + node-testable, the
 // orbiting body is decorative, the beacon marks the orbit. Radii mirror
-// planets.ts LICH_SYSTEM orbitWu (Draugr 150 / Poltergeist 260 / Phobetor 340),
-// duplicated here because courier is a three-free pure module (planets.ts pulls
-// three/tsl). m1.from stays the spawn point (test-locked); m4.to (beam) + m5
-// (swarm) stay hand-authored — not planet-sensible.
+// planets.ts REACH_SYSTEM orbitWu (Praesidium 260 / Aletheia 400 / Kiln 560 /
+// Vesper 1250 / Threshold 2700), duplicated here because courier is a
+// three-free pure module (planets.ts pulls three/tsl). m1.from stays the spawn
+// point (test-locked). m4's azimuth threads the Kiln→Vesper leg through the
+// Dyson-swarm gap (centered (900,0,0), r=250) — the signature-4 payoff.
 const shell = (r: number, az: number, y = 0): Vec3 => [
   Math.round(r * Math.cos(az)),
   y,
   Math.round(r * Math.sin(az)),
 ];
-const W_DRAUGR = shell(150, 0.5, 40); // ≈ [132,40,72]
-const W_POLTERGEIST = shell(260, Math.PI + 0.2, 0); // far side — across the star
-const W_PHOBETOR = shell(340, Math.PI / 2 - 0.2, 80);
+const W_PRAESIDIUM = shell(260, 0.4, 40); // ≈ [239,40,101] — the garden
+const W_ALETHEIA = shell(400, Math.PI + 0.2, 0); // ≈ [-392,0,-79] — far side, across the star
+const W_KILN = shell(560, 0.2, 80); // ≈ [549,80,111] — the forge
+const W_VESPER = shell(1250, -0.2, 0); // ≈ [1225,0,-248] — the ruins (m4 threads the swarm)
+const W_THRESHOLD = shell(2700, 0.3, 0); // ≈ [2579,0,798] — the gate
 
-// ---- 5 authored missions, escalating (straight → single assist → tight
-// periapsis → beam-transit → swarm-threading finale) -------------------------
+// ---- 5 Kindled deliveries, escalating (straight → single assist → tight
+// periapsis → swarm-threading dark → outer gate run) -------------------------
 // from/to CHAIN: each mission's `to` is the next mission's `from`, and m1.from
 // is the spawn point — so delivering one mission auto-offers the next in place.
-// m5 threads into the Dyson swarm region (signature 4). Budgets tighten to
-// reward assist flying over brute thrust.
+// m4 threads the swarm gap (forge→ruins); m5 lands on Threshold = the Contact
+// gate (P3). Budgets tighten to reward assist flying over brute thrust.
 export const MISSIONS: readonly Mission[] = [
   {
-    id: 'm1-straight',
-    name: 'Outbound Relay',
+    id: 'm1-emberlight',
+    name: 'Emberlight Outbound',
     from: [600, 80, 0], // == RESPAWN_POS (Craft.tsx): offered on first step
-    to: W_DRAUGR, // onto Draugr's orbit shell
+    to: W_PRAESIDIUM, // onto the garden's shell
     fuelBudget: 0.7,
-    par: 45,
+    par: 50,
   },
   {
-    id: 'm2-assist',
-    name: 'Gravity Handoff',
-    from: W_DRAUGR,
-    to: W_POLTERGEIST, // across the star — a single assist pays off
+    id: 'm2-archive',
+    name: 'The Archive Run',
+    from: W_PRAESIDIUM,
+    to: W_ALETHEIA, // across the star — a single assist pays off
     fuelBudget: 0.55,
-    par: 70,
-  },
-  {
-    id: 'm3-periapsis',
-    name: 'Close Pass',
-    from: W_POLTERGEIST,
-    to: W_PHOBETOR, // steep dive + tight periapsis slingshot en route
-    fuelBudget: 0.4,
     par: 80,
   },
   {
-    id: 'm4-beam',
-    name: 'Beam Transit Run',
-    from: W_PHOBETOR,
-    to: [700, -120, 300], // crosses the pulsar beam azimuth (radiation transit)
-    fuelBudget: 0.45,
+    id: 'm3-forge',
+    name: 'Forge Handoff',
+    from: W_ALETHEIA,
+    to: W_KILN, // steep dive + tight periapsis slingshot en route
+    fuelBudget: 0.4,
     par: 90,
   },
   {
-    id: 'm5-swarm',
-    name: 'Swarm Thread',
-    from: [700, -120, 300],
-    to: [SWARM_CENTER[0] + 20, SWARM_CENTER[1], SWARM_CENTER[2] + 100], // into the Dyson swarm
+    id: 'm4-ruins',
+    name: 'The Long Dark',
+    from: W_KILN,
+    to: W_VESPER, // threads the Dyson-swarm gap (forge→ruins)
+    fuelBudget: 0.45,
+    par: 130,
+  },
+  {
+    id: 'm5-gate',
+    name: 'To the Door',
+    from: W_VESPER,
+    to: W_THRESHOLD, // the gate station (Contact) — finale
     fuelBudget: 0.5,
-    par: 110,
+    par: 160,
   },
 ];
 
