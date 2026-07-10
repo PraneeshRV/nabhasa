@@ -14,6 +14,7 @@ import {
   type CourierState,
   type Mission,
 } from '../src/game/courier';
+import { REACH_SYSTEM } from '../src/world/planets';
 
 const T: Mission = { id: 't', name: 'T', from: [0, 0, 0], to: [0, 0, 0], fuelBudget: 1, par: 60 };
 
@@ -219,5 +220,45 @@ describe('tick — per-step integration', () => {
     expect(events).toEqual(['failed']);
     expect(state.status).toBe('failed');
     expect(state.failReason).toBe('fuel');
+  });
+});
+
+describe('MISSIONS — Kindled delivery contract (A2 P4)', () => {
+  it('has exactly 5 missions with pinned ids', () => {
+    expect(MISSIONS).toHaveLength(5);
+    expect(MISSIONS.map((m) => m.id)).toEqual([
+      'm1-emberlight',
+      'm2-archive',
+      'm3-forge',
+      'm4-ruins',
+      'm5-gate',
+    ]);
+  });
+
+  it('each destination sits on its named world\'s orbit shell (xz radius ≈ REACH_SYSTEM orbitWu, ±1 wu)', () => {
+    // Beacons are placed via shell(orbitWu, az, y): x,z encode the orbital
+    // radius in the orbital plane; y is a gameplay ELEVATION above the plane
+    // (Praesidium y=40, Kiln y=80 — beacon/spawn height), NOT part of the
+    // orbital radius. So the contract check is the xz-plane radius
+    // Math.hypot(x,z) ≈ orbitWu; full-3D hypot(x,y,z) would falsely flag the
+    // elevated beacons. Destinations chain the canon content-world sentence:
+    // Praesidium → Aletheia → Kiln → Vesper → Threshold.
+    const dest: Array<{ id: string; world: string }> = [
+      { id: 'm1-emberlight', world: 'Praesidium' },
+      { id: 'm2-archive', world: 'Aletheia' },
+      { id: 'm3-forge', world: 'Kiln' },
+      { id: 'm4-ruins', world: 'Vesper' },
+      { id: 'm5-gate', world: 'Threshold' },
+    ];
+    for (const { id, world } of dest) {
+      const m = missionById(id);
+      expect(m, `mission ${id} exists`).toBeDefined();
+      const spec = REACH_SYSTEM.find((w) => w.name === world);
+      expect(spec, `REACH_SYSTEM world ${world}`).toBeDefined();
+      const [x, , z] = m!.to;
+      const orbitalRadius = Math.hypot(x, z);
+      expect(orbitalRadius).toBeGreaterThan(spec!.orbitWu - 1);
+      expect(orbitalRadius).toBeLessThan(spec!.orbitWu + 1);
+    }
   });
 });

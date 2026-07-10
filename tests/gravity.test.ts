@@ -3,8 +3,9 @@
 // oracle. Exact tolerance bands per spec.
 import { describe, it, expect } from 'vitest';
 import { Vector3 } from 'three';
-import { gravityAccel, gravityAccelWithPlanets, PLANET_GMS, PLANET_RADII_WU } from '../src/flight/gravity';
+import { gravityAccel, gravityAccelWithPlanets, PLANET_GMS, PLANET_RADII_WU, PLANET_MASS_EARTHS } from '../src/flight/gravity';
 import { GM_SIM, KILL_RADIUS, FIXED_DT } from '../src/world/scale';
+import { REACH_SYSTEM } from '../src/world/planets';
 
 describe('gravityAccel', () => {
   it('|a| = GM/r² at r=300 → 3.0 wu/s² (±1e-6), points at origin', () => {
@@ -195,5 +196,38 @@ describe('gravityAccelWithPlanets (Amendment A2 — 8-body Reach system)', () =>
     const kilnTerm = termOf(craft, KILN);
     const coronaTerm = termOf(craft, CORONA);
     expect(coronaTerm).toBeLessThan(kilnTerm * 0.01); // <1% of nearest-world term
+  });
+});
+
+describe('gravity.ts ↔ planets.ts cross-copy consistency (8-body Reach arrays mirror REACH_SYSTEM)', () => {
+  // gravity.ts DELIBERATELY duplicates mass/radius (a three-free pure module —
+  // planets.ts pulls three/tsl, kept out of the gravity chunk per its own
+  // comment). This block pins the duplicate against the single contract so a
+  // one-sided edit (a mass tuned in planets.ts but not gravity.ts, or vice-versa)
+  // fails loudly. planets.ts loads under vitest (planets.test.ts imports it), so
+  // the cross-module reference is safe here; only the test references the
+  // contract — the gravity SOURCE stays three-free.
+  it('PLANET_MASS_EARTHS mirrors REACH_SYSTEM massEarthsTuned (all 8, exact) + pins the full array', () => {
+    expect(PLANET_MASS_EARTHS).toHaveLength(8);
+    expect(Array.from(PLANET_MASS_EARTHS)).toEqual(REACH_SYSTEM.map((w) => w.massEarthsTuned));
+    expect(Array.from(PLANET_MASS_EARTHS)).toEqual([0.4, 1.0, 0.8, 1.2, 1.1, 0.6, 95, 0.1]);
+  });
+
+  it('PLANET_RADII_WU mirrors REACH_SYSTEM radiusWu for the 7 spheres; Threshold soft-radius diverges by design', () => {
+    expect(PLANET_RADII_WU).toHaveLength(8);
+    for (let i = 0; i < 7; i++) {
+      expect(PLANET_RADII_WU[i]).toBe(REACH_SYSTEM[i].radiusWu);
+    }
+    // Threshold (#8) is a station, not a sphere. Its gravity soft radius (6.0)
+    // is INTENTIONALLY larger than its spec radiusWu (3.0 structure half-extent
+    // proxy): the bigger soft radius keeps the kinematic station collider
+    // clamped clear of the craft (A1 close-out pattern; gravity.ts comment lines
+    // 46-48). This is the intended relation, NOT a copy-drift mismatch.
+    expect(REACH_SYSTEM[7].radiusWu).toBe(3.0);
+    expect(PLANET_RADII_WU[7]).toBe(6.0);
+  });
+
+  it('PLANET_GMS has one GM per Reach world (len 8)', () => {
+    expect(PLANET_GMS).toHaveLength(8);
   });
 });

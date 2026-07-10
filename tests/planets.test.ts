@@ -5,6 +5,7 @@
 // the clean Dyson-swarm gap, per-world biomes, and positive geometry.
 import { describe, it, expect } from 'vitest';
 import { REACH_SYSTEM, type Biome } from '../src/world/planets';
+import portfolio from '../src/content/portfolio.json';
 
 const NAMES = REACH_SYSTEM.map((w) => w.name);
 const byName = (n: string) => REACH_SYSTEM[NAMES.indexOf(n)];
@@ -45,11 +46,12 @@ describe('REACH_SYSTEM — canon table', () => {
 });
 
 describe('REACH_SYSTEM — Kepler periods', () => {
-  // T ∝ a^1.5, base Brace (130 wu → 50 s). The inner four are near-exact Kepler;
-  // the outer three (Vesper / Corona / Threshold) are gameplay-tuned and drift
-  // 10–20% (the contract comment: "Kepler-ratioed in intent"). 30% relative
-  // tolerance accommodates that tuning while still failing a gross error (a
-  // swapped or unit-wrong period lands ~1.0 off, not ~0.2).
+  // T ∝ a^1.5, base Brace (130 wu → 50 s). The inner four (Brace / Praesidium /
+  // Aletheia / Kiln) are near-exact Kepler (≤0.4% drift) — pinned to a 5% band.
+  // The outer worlds are gameplay-tuned ("Kepler-ratioed in intent"): Vesper /
+  // Riven / Corona / Threshold drift up to ~20% (Threshold is the loosest), so
+  // they keep the 30% band that still fails a gross error (a swapped or
+  // unit-wrong period lands ~1.0 off, not ~0.2).
   const brace = REACH_SYSTEM[0];
   const baseA = brace.orbitWu;
   const baseT = brace.periodS;
@@ -59,12 +61,17 @@ describe('REACH_SYSTEM — Kepler periods', () => {
     expect(brace.periodS).toBe(50);
   });
 
-  it('periodS ≈ 50·(orbitWu/130)^1.5 within 30% (inner exact, outer tuned)', () => {
-    for (const w of REACH_SYSTEM) {
+  it('periodS ≈ 50·(orbitWu/130)^1.5: inner four within 5%, outer four within 30%', () => {
+    // Tightened from the old 30% blanket: the inner four (indices 0–3) are
+    // near-exact Kepler and now carry a 5% band; the outer four keep 30% for
+    // the intended gameplay tuning. Both bands are ≤ the prior 0.3 everywhere,
+    // so this strictly tightens — never weakens.
+    REACH_SYSTEM.forEach((w, i) => {
       const kepler = baseT * Math.pow(w.orbitWu / baseA, 1.5);
       const rel = Math.abs(w.periodS - kepler) / kepler;
-      expect(rel).toBeLessThan(0.3);
-    }
+      const tol = i < 4 ? 0.05 : 0.3;
+      expect(rel).toBeLessThan(tol);
+    });
   });
 
   it('periodS and orbitWu are strictly monotonic increasing (no inversions)', () => {
@@ -145,6 +152,52 @@ describe('REACH_SYSTEM — per-world props (render contract, P1.2)', () => {
     for (const w of REACH_SYSTEM) {
       expect(w.palette).toHaveLength(2);
       for (const hex of w.palette) expect(/^#[0-9a-f]{6}$/i.test(hex)).toBe(true);
+    }
+  });
+});
+
+describe('REACH_SYSTEM — exact contract pins (orbit / mass / radius)', () => {
+  // Pins the contract table columns verbatim (docs/a2-fantasy-plan.md). A future
+  // tuning edit to any orbit/mass/radius now fails a focused test instead of
+  // silently drifting the gravity + courier duplicates that mirror these.
+  it('orbitWu pins to the contract orbit shells', () => {
+    expect(REACH_SYSTEM.map((w) => w.orbitWu)).toEqual([130, 260, 400, 560, 1250, 1600, 2050, 2700]);
+  });
+
+  it('massEarthsTuned pins to the tuned gameplay masses', () => {
+    expect(REACH_SYSTEM.map((w) => w.massEarthsTuned)).toEqual([0.4, 1.0, 0.8, 1.2, 1.1, 0.6, 95, 0.1]);
+  });
+
+  it('radiusWu pins to the contract radii (Threshold = structure half-extent proxy)', () => {
+    // The contract table marks Threshold (#8) radius as "(structure)" — it is a
+    // station, not a sphere. 3.0 here is the structure half-extent proxy the
+    // dedicated P1.2 render path consumes; the seven spheres pin their table radii.
+    expect(REACH_SYSTEM.map((w) => w.radiusWu)).toEqual([3.0, 5.0, 4.6, 5.8, 6.2, 5.4, 9.0, 3.0]);
+  });
+});
+
+describe('portfolio.json — binds to the REACH_SYSTEM content worlds (P3)', () => {
+  // The portfolio is a content layer keyed by slot; each slot must bind to the
+  // single REACH_SYSTEM world whose contentSlot === that slot, echo the slot
+  // key, and carry a non-empty myth. Locks the approach-trigger → panel wiring.
+  const SLOTS = ['About', 'Research', 'Projects', 'Experience', 'Contact'] as const;
+  const worldBySlot = (slot: string): string | undefined =>
+    REACH_SYSTEM.find((w) => w.contentSlot === slot)?.name;
+
+  it('exactly five slots, each backed by exactly one content world', () => {
+    expect(Object.keys(portfolio).sort()).toEqual([...SLOTS].sort());
+    for (const slot of SLOTS) {
+      expect(worldBySlot(slot)).toBeDefined();
+    }
+  });
+
+  it('each section binds its slot + matching REACH_SYSTEM world + non-empty myth', () => {
+    for (const slot of SLOTS) {
+      const section = (portfolio as Record<string, { slot: string; world: string; myth: string }>)[slot];
+      expect(section, `portfolio section ${slot}`).toBeDefined();
+      expect(section.slot).toBe(slot);
+      expect(section.world).toBe(worldBySlot(slot));
+      expect(section.myth.length).toBeGreaterThan(0);
     }
   });
 });
