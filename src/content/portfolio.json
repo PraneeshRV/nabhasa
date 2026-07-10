@@ -1,0 +1,110 @@
+{
+  "About": {
+    "slot": "About",
+    "world": "Praesidium",
+    "headline": "I break AI agents.",
+    "myth": "The closest echo of the world they lost; the one place they allow themselves to be sentimental.",
+    "blocks": [
+      {
+        "heading": "Who I am",
+        "body": "Praneesh R V — 20, from Hosur, Tamil Nadu, in my final year of B.Tech CSE (Cybersecurity) at Amrita Vishwa Vidyapeetham, Coimbatore. One line runs underneath everything I build: I break AI agents."
+      },
+      {
+        "heading": "Focus",
+        "body": "AI red teaming is my single focus. Offensive security, product building, and study all serve it. I work across pentesting, agent-security research, and shipping real tools with heavy multi-agent assistance — Claude Code, Codex, Antigravity, Gemini."
+      },
+      {
+        "heading": "Practice",
+        "body": "Co-founder of CTF team Hunter (~#8 India, 50+ events), specialising in OSINT, forensics, and web exploitation. The adversarial mindset from the capture-the-flag circuit feeds straight back into how I probe agents for failure."
+      },
+      {
+        "heading": "How I work",
+        "body": "Multi-agent everything: I spin up agents to brainstorm, plan, build, and review. I care about provenance, privacy, and governance — unfinished work stays out of training data. Arch Linux + Hyprland, dark mode always."
+      }
+    ]
+  },
+  "Research": {
+    "slot": "Research",
+    "world": "Aletheia",
+    "headline": "How thinking machines fail",
+    "myth": "Built so no Kindled would ever forget; its surface is shelves, and every shelf is full.",
+    "blocks": [
+      {
+        "heading": "Attack surface",
+        "body": "AI red teaming of agentic systems: the MCP and A2A protocols, memory poisoning, tool misuse, JWT abuse, and agent-card trust chains. Where the model trusts, I look for the seam."
+      },
+      {
+        "heading": "Securin Research",
+        "body": "Research intern (2026, via TIFAC CORE / Amrita) on AI red teaming. Probed live agent attack surfaces and merged contributions upstream to GranzionLab."
+      },
+      {
+        "heading": "Published",
+        "body": "Agent-Redteaming-CTF-challs — a published set of agentic-AI-security CTF challenges, so others can learn to break what I break."
+      },
+      {
+        "heading": "Directions",
+        "body": "Agentic-AI security research, with a parallel interest in Q1-level Linux OS research. Microsoft Security Research interview, Feb 2026."
+      }
+    ]
+  },
+  "Projects": {
+    "slot": "Projects",
+    "world": "Kiln",
+    "headline": "Tried in fire",
+    "myth": "Where every dream is tried in fire; half its craters are stars that didn't take.",
+    "blocks": [
+      {
+        "heading": "Redcalibur",
+        "body": "My AI-powered pentesting tool, mid clean-room 2.0 revamp. The offensive-security flagship — where agent-assisted building meets a real red-team workflow."
+      },
+      {
+        "heading": "Dying Star",
+        "body": "This portfolio — a space-themed interactive site, and my most-worked project. You are flying through it right now."
+      },
+      {
+        "heading": "L3m0nCTF 2025",
+        "body": "Lead organiser and infra lead: GCP + CTFd, 200+ players. Built and ran the whole contest backbone."
+      },
+      {
+        "heading": "Also in the forge",
+        "body": "axec-cli (Rust AppImage manager), SharedTaskTracker, Project Muginn, MultiAgent UAV, Guidewire DevTrails. Half the craters are stars that didn't take — the rest are still burning."
+      }
+    ]
+  },
+  "Experience": {
+    "slot": "Experience",
+    "world": "Vesper",
+    "headline": "Lights left on",
+    "myth": "First lit when the Ember was new; its people went to the stars but left the lights on.",
+    "blocks": [
+      {
+        "heading": "AI Developer Intern — Joy IT Solutions",
+        "body": "Apr – 27 Jun 2026, remote. Azure recruitment-agent platform: C#/.NET, Azure DevOps, Document Intelligence, Azure OpenAI GPT-4o, ADLS Gen2, Key Vault, OAuth2/PKCE/Azure B2C."
+      },
+      {
+        "heading": "Research Intern — Securin Research",
+        "body": "2026, via TIFAC CORE / Amrita. AI red teaming: MCP/A2A, memory poisoning, tool misuse, JWT abuse, agent-card trust chains."
+      },
+      {
+        "heading": "CTF — Team Hunter",
+        "body": "Co-founder. ~#8 India / ~#102–121 global on CTFtime, 50+ events. Best finishes: CREST 3rd, CryptoNite 5th, Pragyan/KICTF 8th, H7CTF Finals 14th."
+      },
+      {
+        "heading": "Certifications",
+        "body": "Google Cybersecurity Professional, Cisco Ethical Hacker, Fortinet NSE 1 & 2, Certified Blockchain Associate. PJPT (TCM) in progress; APISec ACP and CASA pending."
+      }
+    ]
+  },
+  "Contact": {
+    "slot": "Contact",
+    "world": "Threshold",
+    "headline": "Open a channel",
+    "myth": "Every word to a hundred galaxies passes through this ring; it is the loudest mailbox in the Reach.",
+    "blocks": [
+      {
+        "heading": "Send word outward",
+        "body": "Hiring, collaborating, or want to break agents together? Send word through the gate. [Praneesh: confirm contact links — email, GitHub, LinkedIn, CTFtime handle]."
+      }
+    ]
+  }
+}
