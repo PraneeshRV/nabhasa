@@ -92,9 +92,32 @@ none on root); ESC path verified (closes, records `dismissed`, unpins).
 
 ## UX critique (impeccable, dual-agent) — 2026-07-10
 
-Full snapshot: `.impeccable/critique/` (slug `src-app-tsx`). Summary is
-appended here once the critique run completes; if this section still says so,
-the run was in flight when this doc was committed — check the snapshot dir.
+Full report: `.impeccable/critique/2026-07-10T07-46-07Z__src-app-tsx.md`.
+Method: two isolated sub-agents (design review; deterministic detector +
+browser evidence). **Score 20/40 (Acceptable). Not AI slop** — detector exit 0,
+zero findings; static page a11y structure verified correct (heading order,
+skip link, captioned/scoped tables, ~6.6:1 contrast, clean console both routes).
+
+**3 × P0 (the UX audit's core result — all "demo-ware seams", not craft bugs):**
+1. Mission system invisible: courier `offered` state has NO UI anywhere;
+   keyboard hints omit KeyC. The 5-mission spine is undiscoverable.
+2. Contact endpoint has no contact method: portfolio.json Contact is an
+   editorial placeholder AND ApproachPanel has no anchor rendering path — even
+   finished copy couldn't be clickable.
+3. Content parity claimed but absent: StaticExperience + mobile FlythroughFilm
+   contain zero portfolio content (no name, no sections, no contact) — the
+   most likely visitor (mobile recruiter) learns nothing.
+
+**2 × P1:** reading panels races orbital mechanics (Praesidium ~11.6 wu/s vs
+60 wu radius — panel closes mid-paragraph; delivery beacons are fixed
+snapshots while planets orbit); no non-flight content path + no onboarding
+beat on desktop (decoupled 6DOF gate in front of all content).
+
+**P2:** no low-fuel warning; mission abandon exists in the reducer, nothing
+dispatches it.
+
+Strengths confirmed: collapse preloader (honest load signals, audio-consent
+gate), non-modal diegetic panels, failure-recovery engineering.
 
 ## How to run
 
