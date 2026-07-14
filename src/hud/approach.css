@@ -41,16 +41,20 @@
   will-change: transform, opacity;
 }
 
-/* Slide-in 300ms (plan §P3). Runs on mount (the panel unmounts on dismiss).
+/* Slide + settle on open (W5 Step 2): 320 ms cubic-bezier(0.16,1,0.3,1) — a
+   settle-style ease (slow-out, no overshoot), 24 px → 0 + opacity 0 → 1. The
+   panel is MOUNT-gated (ApproachPanel returns null once dismissed), so the close
+   is instant: an exit-state animation would need an unmount deferral
+   (CSSTransition / portal), which is out of scope here (no animation library).
    Resting state above is the visible end-state, so a disabled animation still
    shows the panel correctly (reduced-motion ⇒ instant). */
 .approach-panel.is-open {
-  animation: approach-in 0.3s ease-out;
+  animation: approach-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes approach-in {
   from {
     opacity: 0;
-    transform: translate(28px, -50%);
+    transform: translate(24px, -50%);
   }
   to {
     opacity: 1;

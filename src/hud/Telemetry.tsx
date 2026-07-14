@@ -13,11 +13,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useHudStore, DISPLAY_RATE } from './hudStore';
+import { useApproachStore } from './approachStore';
+import { hudBreathState, dilationEmphasis, TRAN_THRESHOLD } from './breath';
 import { input, type InputSource } from '../flight/input';
 import { PULSAR } from './physics-data';
 import './hud.css';
-
-const TRAN_THRESHOLD = 0.4; // beamState.transit above this ⇒ "RADIATION TRANSIT"
 
 const HINTS: Record<InputSource, string> = {
   kbd: 'WASD THRUST · ↑↓ PITCH · ←→ YAW · Q/E ROLL · SHIFT BOOST · SPACE BRAKE · C ACCEPT',
@@ -34,11 +34,22 @@ const pct = (f: number) => `${Math.round((f < 0 ? 0 : f > 1 ? 1 : f) * 100)}`;
 
 export function Telemetry() {
   const s = useHudStore();
+  const approaching = useApproachStore((a) => a.open); // approach target active (5 Hz store)
   const transit = s.beamTransit > TRAN_THRESHOLD;
+  // W5: HUD breathing (rest/approach/danger) + time-dilation emphasis drive two
+  // data-attrs on the root; both computed from existing 10 Hz store values.
+  const breath = hudBreathState(approaching, s.beamTransit);
+  const dilated = dilationEmphasis(s.dilation);
   const spinHz = 1 / PULSAR.periodS; // ≈160.8 Hz — real sonification tone
 
   return (
-    <div className="hud-root" aria-live="off" aria-atomic="false">
+    <div
+      className="hud-root"
+      aria-live="off"
+      aria-atomic="false"
+      data-breath={breath}
+      data-dilated={dilated || undefined}
+    >
       {/* TL — pulsar identity (static content) */}
       <div className="hud-cluster hud-tl">
         <div className="hud-row">
@@ -103,7 +114,9 @@ export function Telemetry() {
         </div>
         <div className="hud-row">
           <span className="hud-label">t_you</span>
-          <span className="hud-val">{s.dilation.toFixed(4)}</span>
+          <span className={`hud-val${dilated ? ' hud-dilation' : ''}`}>
+            {s.dilation.toFixed(4)}
+          </span>
         </div>
         <div className="hud-row">
           <span className="hud-label">Beam</span>
