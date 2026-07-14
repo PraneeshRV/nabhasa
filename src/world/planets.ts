@@ -53,6 +53,7 @@ import {
   cameraPosition,
   mx_fractal_noise_float,
   mx_worley_noise_float,
+  transformNormalToView,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 
@@ -314,7 +315,12 @@ const bumpNormal = (scale: number, amp: number) => {
   const hC = mx_fractal_noise_float(p.mul(s), 2, 2.0, 0.5, 1.0);
   const hX = mx_fractal_noise_float(p.add(t1.mul(eps)).mul(s), 2, 2.0, 0.5, 1.0);
   const hY = mx_fractal_noise_float(p.add(t2.mul(eps)).mul(s), 2, 2.0, 0.5, 1.0);
-  return normalize(n.sub(t1.mul(hX.sub(hC)).mul(a)).sub(t2.mul(hY.sub(hC)).mul(a)));
+  // normalNode is consumed as the VIEW-space normal (NodeMaterial.setupNormal
+  // returns it verbatim into the normalView pipeline) — transform the perturbed
+  // LOCAL normal to view space or lighting rotates with the camera.
+  return transformNormalToView(
+    normalize(n.sub(t1.mul(hX.sub(hC)).mul(a)).sub(t2.mul(hY.sub(hC)).mul(a))),
+  );
 };
 
 // ── Biome material factory (TSL MeshStandardNodeMaterial, star = sole light) ─
