@@ -48,6 +48,20 @@ const TRANSIT_TAU = 0.08;
 const TRANSIT_LIFT = 0.8; // intensity 1.0 → 1.8 at full transit
 const LIGHT_SCALE = 4000; // point-light intensity at full transit (decay=2)
 
+// W3 beam visibility (art-direction A2 consequence + §Post-processing intent
+// "webgl2 tier: post off … scenes must still read correctly with zero bloom").
+// Beams must read at spawn distance (~1500–3000 wu) on EVERY tier. Bloom tiers
+// read the >1 core through the bloom halo; webgl2 has NO post (quality.ts
+// post:false), so the shaft needs a brighter, tone-mapped fallback to register
+// without a halo. coreHot + a higher intensity base on webgl2 cover it.
+// BLOOM-TIER VALUES ARE BYTE-IDENTICAL TO PRE-W3 (1.5 / 1.0) — the module
+// default in pulsarBeam.ts stays 1.5; only the webgl2 session is brighter.
+// Geometry untouched (scope: src/signatures/ only — no shaders/ edit).
+const CORE_HOT_BLOOM = 1.5; // >1 ⇒ bloom catches cores (pulsarBeam.ts default)
+const CORE_HOT_FALLBACK = 2.4; // webgl2: harder/brighter tone-mapped core, no bloom
+const INT_BASE_BLOOM = 1.0; // bloom tiers: pre-W3 intensity base
+const INT_BASE_FALLBACK = 1.6; // webgl2: brighter shaft body reads at distance
+
 // ---- shared beam state (refs, NOT React state — zero per-frame setState) ----
 // sonify (Task 9) + Telemetry (Task 13) read this; phase-locked to starSpinAngle.
 export interface BeamState {
@@ -77,6 +91,16 @@ export function PulsarBeams({ tier }: { tier: Tier }) {
   const seg = QUALITY[tier].beamSegments; // per-tier cone resolution (static hits the null return below before this renders)
 
   useEffect(() => () => material.dispose(), [material]);
+
+  // W3: webgl2 (no post) gets a brighter beam so it reads at spawn distance
+  // without a bloom halo. QUALITY[tier].post is the single tier gate. Bloom
+  // tiers keep CORE_HOT_BLOOM/INT_BASE_BLOOM (1.5/1.0) — pre-W3 behavior.
+  const bloomTier = QUALITY[tier].post;
+  const coreHot = bloomTier ? CORE_HOT_BLOOM : CORE_HOT_FALLBACK;
+  const intBase = bloomTier ? INT_BASE_BLOOM : INT_BASE_FALLBACK;
+  useEffect(() => {
+    beamUniforms.coreHot.value = coreHot;
+  }, [coreHot]);
 
   useFrame((_, rawDt) => {
     const spin = spinRef.current;
@@ -117,7 +141,7 @@ export function PulsarBeams({ tier }: { tier: Tier }) {
 
     // ── bloom lift, slew-capped (≤1.8× over ≤400ms; no strobe) ──
     const dt = Math.min(rawDt, 1 / 30);
-    const target = 1 + TRANSIT_LIFT * transit;
+    const target = intBase + TRANSIT_LIFT * transit;
     const k = 1 - Math.exp(-dt / TRANSIT_TAU);
     beamUniforms.intensity.value += (target - beamUniforms.intensity.value) * k;
 
