@@ -10,6 +10,10 @@
 > sanctioned exceptions, it does not relax a single v1 invariant. Until Praneesh
 > signs, v2 is advisory and builders default to v1. Amendments always require
 > re-approval.
+>
+> **STATUS v2.1:** Spec `2026-07-14-nabhasa-elevation.md` amendment — AI-generated
+> assets MAY ship after curation (this doc §Generated assets). Approved with the
+> elevation spec 2026-07-14; supersedes "AI gen = moodboard-never-shipped" below.
 
 This doc gates all visual work. Every scene, shader, and post decision cites this. If a
 scene wants something not covered here, amend this doc first, then build.
@@ -183,6 +187,24 @@ HUD text color `--ui-cold`; the value currently being sonified/changed may pulse
 7. Interstellar Gargantua stills (Double Negative / Kip Thorne renders) — lensing ring value structure: thin blinding ring, everything else near-black.
 8. Obys Agency — https://obys.agency — typographic discipline on dark grounds; how far restraint can carry a page.
 9. ESA Integral/XMM pulsar artist impressions — https://www.esa.int (CC BY, credit in footer if any still is referenced directly in textures).
+
+## Generated assets (v2.1 — sanctioned, curated)
+
+Sources: Pollinations (iteration/candidates), Gemini Omni (hi-res finals),
+Google Flow/Veo (video plates). Rules, all binding:
+
+1. Allowed asset classes ONLY: skybox/nebula plates, per-biome surface detail
+   plates, ring-band strips, one hero video plate (preloader/overture backdrop).
+   Never: UI elements, HUD, typography, logos, world silhouettes/hero geometry.
+2. Every candidate passes the palette gate: sampled dominant hues must sit in
+   the `--void`/`--star-mid` family or the target biome's Key/Mid hexes.
+   Purple/teal nebula gradients = auto-reject (hard ban).
+3. Neutral plates: no baked bloom/glow, no lens flares, no text/watermarks,
+   no recognizable NASA imagery composited in. Grading happens in-engine.
+4. Ledger row required before integration: file, source tool, prompt hash,
+   date, license note, art-direction citation, approved-by.
+5. Praneesh batch-approves via contact sheet; unapproved candidates are
+   deleted from the repo (kept only in scratch).
 
 ## Per-region mood + lighting key
 
