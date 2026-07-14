@@ -171,11 +171,65 @@ body.hud-cursor-active {
   }
 }
 
-/* Reduced-motion floor (spec Task 15 a11y): no value pulse, no thrust cursor
-   scaling. The static tier never mounts this overlay (App routes to
-   StaticExperience), but guard regardless. */
+/* ---- HUD breathing (W5 Step 1): rest / approach / danger ----
+   data-breath on .hud-root retimes a barely-there border glow on every
+   .hud-cluster. DOM-only (art-direction ~238): no light, no exposure, no bloom —
+   just a border box-shadow. Periods stay well under the 3 Hz photosafety cap
+   (1.2 s = ~0.83 Hz). Danger additionally shifts the border to the warning tone:
+   art-direction defines no UI warning hex, so the one hot accent (--star-hot)
+   doubles as the alert — noted. That border-color shift is a STATIC rule (not in
+   the keyframe), so the danger signal survives reduced-motion with the glow off. */
+.hud-root[data-breath='rest'] .hud-cluster {
+  --breath-glow: rgba(58, 65, 80, 0.35);
+  animation: hud-breath 6s ease-in-out infinite;
+}
+.hud-root[data-breath='approach'] .hud-cluster {
+  --breath-glow: rgba(58, 65, 80, 0.6);
+  animation: hud-breath 3s ease-in-out infinite;
+}
+.hud-root[data-breath='danger'] .hud-cluster {
+  --breath-glow: rgba(175, 227, 255, 0.55); /* --star-hot #afe3ff ≈ rgb(175,227,255) */
+  border-color: var(--star-hot);
+  animation: hud-breath 1.2s ease-in-out infinite;
+}
+@keyframes hud-breath {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--breath-glow);
+  }
+  50% {
+    box-shadow: 0 0 5px 1px var(--breath-glow);
+  }
+}
+
+/* ---- time-dilation UI emphasis (W5 Step 4) ----
+   dilation row: value lifts to the hot accent + a slow 1.5 s color pulse (reuses
+   the existing hud-pulse keyframe, retimed — no new keyframe). Page-level cue:
+   data-dilated slows the breath to a calm 6 s (the existing rest period — no
+   invented duration), reusing the Step 1 hud-breath machinery rather than a
+   second system. Danger keeps its 1.2 s alert (radiation outranks dilation). */
+.hud-dilation {
+  color: var(--star-hot);
+  animation: hud-pulse 1.5s ease-in-out infinite;
+}
+.hud-root[data-dilated]:not([data-breath='danger']) .hud-cluster {
+  animation-duration: 6s;
+}
+
+/* Reduced-motion floor (spec Task 15 a11y): no value pulse, no dilation pulse, no
+   breath glow, no thrust cursor scaling. Selectors match the breath-rule
+   specificity (0,3,0) so this later block wins; animation-name:none kills the
+   breath regardless of the data-dilated duration override. Static border-color
+   (danger) + base dilation color survive, so no cue is motion-only. The static
+   tier never mounts this overlay (App routes to StaticExperience), guard anyway. */
 @media (prefers-reduced-motion: reduce) {
   .hud-pulse {
+    animation: none;
+  }
+  .hud-dilation {
+    animation: none;
+  }
+  .hud-root[data-breath] .hud-cluster {
     animation: none;
   }
   .hud-cursor {

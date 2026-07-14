@@ -37,6 +37,7 @@ import { REACH_SYSTEM, createPlanetMaterial, type PlanetSpec } from './planets';
 import { detectTier, type Tier } from '../core/tiers';
 import { QUALITY } from '../core/quality';
 import { JumpGate } from './JumpGate'; // P5b: Threshold jump-gate (self-tracks index 7)
+import { useApproachStore } from '../hud/approachStore'; // W5 Step 3: arrival swell signal
 
 // Planet contract for any consumer (diegetic HUD, etc.). Single source = planets.ts.
 export const PLANETS = REACH_SYSTEM;
@@ -362,6 +363,20 @@ function ReachWorld({
   k: number;
 }) {
   const orbitRef = useRef<THREE.Group>(null);
+  // W5 Step 3 — arrival swell. When THIS world is the live approach target the
+  // whole world eases up ~6% over ~2 s ("opens as you near it", art-direction
+  // ~236). Decorative-only scaling was rejected: 3/5 content worlds render no
+  // ring/moon/debris and Praesidium's lone ~0.7 wu moon is sub-pixel at range, so
+  // a uniform whole-world swell is the smallest cue that reads on every content
+  // world. Same approachStore signal the panel uses (no new plumbing); ref-lerp,
+  // no setState in frame. POSITIONS uses orbitWu+θ ⇒ gravity/collider/courier
+  // untouched. Reduced-motion ⇒ no swell.
+  const swellRef = useRef<THREE.Group>(null);
+  const approach = useRef(0);
+  const reduce = useRef(false);
+  useEffect(() => {
+    reduce.current = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 1 / 30);
@@ -372,11 +387,23 @@ function ReachWorld({
     // body at local [orbitWu,0,0] under R_y(θ) is [r·cosθ, 0, −r·sinθ].
     const theta = orbitRef.current?.rotation.y ?? phase;
     POSITIONS[idx]?.set(spec.orbitWu * Math.cos(theta), 0, -spec.orbitWu * Math.sin(theta));
+
+    // Arrival swell: ease toward 1 while this world is the active approach target.
+    if (swellRef.current) {
+      if (reduce.current) {
+        swellRef.current.scale.setScalar(1); // reduced-motion: no swell motion
+      } else {
+        const st = useApproachStore.getState();
+        const target = st.open && st.world === spec.name ? 1 : 0;
+        approach.current += (target - approach.current) * Math.min(1, dt * 1.2); // τ≈0.8 s ⇒ ~95% in ~2.4 s
+        swellRef.current.scale.setScalar(1 + approach.current * 0.06);
+      }
+    }
   });
 
   return (
     <group ref={orbitRef} rotation={[0, phase, 0]}>
-      <group position={[spec.orbitWu, 0, 0]}>
+      <group ref={swellRef} position={[spec.orbitWu, 0, 0]}>
         {spec.biome === 'station' ? (
           <ThresholdStructure spec={spec} k={k} />
         ) : (
