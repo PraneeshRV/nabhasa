@@ -16,6 +16,12 @@ import { CatmullRomCurve3, Vector3 } from 'three';
 
 // The ONE hardcoded coordinate the spec permits: the flight spawn pose. Matches
 // flight/Craft.tsx RESPAWN_POS and flight/craftState.ts's initial pos exactly.
+// Finding 1: the rail's final waypoint is no longer this bare craft pose — the
+// caller (Overture.tsx buildOvertureSources) passes the CHASE pose (deriving
+// it from craftState + cameraRig offsets via chaseSpawnPose), so the rail ends
+// exactly where CameraRig will place the camera at handover — no camera pop. rail.ts
+// math is unchanged; it just consumes whatever `spawn` it is given. Kept exported so
+// tests can pin the underlying craft contract.
 export const SPAWN_POS: readonly [number, number, number] = [600, 80, 0];
 
 // Star center (world/scale.ts: "star at origin", r=10). Readonly Vector3 — the rail
@@ -41,11 +47,23 @@ export interface OvertureSources {
 // Index into `worlds` the rail glides past (the "Reach glide" beat subject).
 // Praesidium (REACH_SYSTEM[1], "the garden", contentSlot 'About') — the first
 // portfolio world and a gentle inner-orbit subject. An ARRAY INDEX, not a coord;
-// the live position is read from the singleton at runtime.
-const GLIDE_WORLD_INDEX = 1;
+// the live position is read from the singleton at runtime. Exported (Finding 5)
+// so Overture.tsx reads the SAME world's live position for the glide-drift blend.
+export const GLIDE_WORLD_INDEX = 1;
+
+// Minimum gap (wu) between consecutive Catmull-Rom control points. Centripetal
+// parameterization divides by inter-point distance — coincident (or near-
+// coincident) neighbors produce NaN camera positions (Finding 3). Points closer
+// than this to their predecessor are filtered out of `points`.
+const MIN_WAYPOINT_GAP = 1;
 
 export interface OvertureWaypoints {
-  points: readonly Vector3[]; // ordered Catmull-Rom control points (start…spawn)
+  // Ordered Catmull-Rom control points (start…spawn), FILTERED so no consecutive
+  // pair sits closer than MIN_WAYPOINT_GAP (Finding 3: coincident points → NaN).
+  // The named fields below stay the RAW source-derived values; only `points` is
+  // filtered. Start and spawn are sacred — filtering drops inner points, never
+  // the endpoints.
+  points: readonly Vector3[];
   start: Vector3; // star-derived reveal start
   glideWorld: Vector3; // exact source world position
   swarm: Vector3; // exact source swarm position
@@ -71,7 +89,23 @@ export function frameWaypoints(src: OvertureSources): OvertureWaypoints {
 
   const swarm = new Vector3().copy(src.swarm);
   const spawn = new Vector3().copy(src.spawn);
-  const points: Vector3[] = [start, new Vector3().copy(glideWorld), swarm, spawn];
+
+  // Finding 3: filter near-coincident control points (centripetal Catmull-Rom
+  // NaNs on zero-distance neighbors). Inner points must clear MIN_WAYPOINT_GAP
+  // from the last kept point; the spawn endpoint is sacred — if it lands too
+  // close to the kept tail, drop inner points instead. Result always has >= 2
+  // points (start + spawn); a 2-point Catmull-Rom degenerates to a line, which
+  // is valid and finite.
+  const raw: Vector3[] = [start, new Vector3().copy(glideWorld), swarm, spawn];
+  const points: Vector3[] = [raw[0]];
+  for (let i = 1; i < raw.length - 1; i++) {
+    if (raw[i].distanceTo(points[points.length - 1]) >= MIN_WAYPOINT_GAP) points.push(raw[i]);
+  }
+  const last = raw[raw.length - 1];
+  while (points.length > 1 && last.distanceTo(points[points.length - 1]) < MIN_WAYPOINT_GAP) {
+    points.pop();
+  }
+  points.push(last);
   return { points, start, glideWorld, swarm, spawn };
 }
 
@@ -90,4 +124,24 @@ export function createRail(w: OvertureWaypoints): CatmullRomCurve3 {
 // camera.position to this each frame and lookAts the origin.
 export function railPointAt(curve: CatmullRomCurve3, p: number): Vector3 {
   return curve.getPoint(p < 0 ? 0 : p > 1 ? 1 : p);
+}
+
+const UP = new Vector3(0, 1, 0);
+
+// The CHASE pose for a craft at craftPos facing craftForward: where CameraRig
+// (flight/cameraRig.ts) drives the camera — pos − forward·offsetBack + up·offsetUp.
+// Finding 1: the rail's final waypoint is THIS pose (not the bare craft pose) so
+// the rail→CameraRig handover is pop-free. Offsets are passed in (not imported
+// from cameraRig, a fiber module) so rail.ts stays fiber-free and node-testable;
+// Overture.tsx supplies cameraRig's exported OFFSET_BACK/OFFSET_UP.
+export function chaseSpawnPose(
+  craftPos: Readonly<Vector3>,
+  craftForward: Readonly<Vector3>,
+  offsetBack: number,
+  offsetUp: number,
+): Vector3 {
+  return new Vector3()
+    .copy(craftPos)
+    .addScaledVector(craftForward, -offsetBack)
+    .addScaledVector(UP, offsetUp);
 }

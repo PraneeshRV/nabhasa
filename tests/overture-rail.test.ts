@@ -16,9 +16,11 @@ import {
   frameWaypoints,
   createRail,
   railPointAt,
+  chaseSpawnPose,
   STAR_START_OFFSET,
   type OvertureSources,
 } from '../src/overture/rail';
+import { craftState } from '../src/flight/craftState';
 import { REACH_SYSTEM } from '../src/world/planets';
 import { SWARM_CENTER } from '../src/world/scale';
 
@@ -170,5 +172,85 @@ describe('createRail — Catmull-Rom continuity + handover endpoint', () => {
     for (let i = 0; i <= 100; i++) {
       expect(r.getPoint(i / 100).length()).toBeLessThan(3000);
     }
+  });
+});
+
+describe('chaseSpawnPose — rail ends at the CHASE pose, not the craft pose (Finding 1)', () => {
+  // CameraRig drives the camera to craftPos − forward·OFFSET_BACK + up·OFFSET_UP;
+  // the rail's final waypoint must equal THAT (not the bare craft pose) so handover
+  // is pop-free. The offset VALUES (28/8) live in cameraRig — a fiber module — so
+  // importing them here would drag R3F into this node test. They are restated against
+  // the craftState contract and the RESULT coords are DERIVED from craftState, never
+  // hardcoded as magic 88/28. (This is the documented Finding-1 test delta: a pure
+  // helper is tested instead of buildOvertureSources to keep the suite fiber-free.)
+  it('computes pos − forward·back + up·up for arbitrary inputs', () => {
+    const pos = new Vector3(10, 20, 30);
+    const fwd = new Vector3(1, 0, 0); // looking +x ⇒ behind is −x
+    const chase = chaseSpawnPose(pos, fwd, 5, 7);
+    expect(chase.toArray()).toEqual([10 - 5, 20 + 7, 30]);
+  });
+
+  it('for the craftState initial equals the CameraRig chase pose (600,88,28), derived not magic', () => {
+    const chase = chaseSpawnPose(craftState.pos, craftState.forward, 28, 8);
+    expect(chase.x).toBeCloseTo(craftState.pos.x, 6);
+    expect(chase.y).toBeCloseTo(craftState.pos.y + 8, 6); // +up·8
+    expect(chase.z).toBeCloseTo(craftState.pos.z + 28, 6); // forward (0,0,−1) ⇒ −forward·28 = +z·28
+  });
+
+  it('differs from the bare craft pose (regression: the rail must NOT end at craftPos)', () => {
+    const chase = chaseSpawnPose(craftState.pos, craftState.forward, 28, 8);
+    expect(chase.distanceTo(craftState.pos)).toBeGreaterThan(0);
+  });
+});
+
+describe('frameWaypoints — coincident waypoints filtered (Finding 3: no CatmullRom NaN)', () => {
+  it('drops a swarm coincident with the glide world — no consecutive pair < 1 wu, finite everywhere', () => {
+    const glide = new Vector3(-245, 0, -87);
+    const src: OvertureSources = {
+      star: new Vector3(0, 0, 0),
+      worlds: [new Vector3(-130, 0, 5), glide],
+      swarm: new Vector3().copy(glide), // EXACT coincidence with the glide world
+      spawn: new Vector3(600, 80, 0),
+    };
+    const w = frameWaypoints(src);
+    for (let i = 1; i < w.points.length; i++) {
+      expect(w.points[i].distanceTo(w.points[i - 1])).toBeGreaterThanOrEqual(1);
+    }
+    const curve = createRail(w);
+    for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+      const v = railPointAt(curve, p);
+      expect(Number.isFinite(v.x)).toBe(true);
+      expect(Number.isFinite(v.y)).toBe(true);
+      expect(Number.isFinite(v.z)).toBe(true);
+    }
+  });
+
+  it('degenerate all-coincident sources stay finite with >= 2 points', () => {
+    const origin = new Vector3(0, 0, 0);
+    const src: OvertureSources = {
+      star: new Vector3(0, 0, 0),
+      worlds: [origin], // glide index absent → falls back to worlds[0] === star
+      swarm: new Vector3(0, 0, 0),
+      spawn: new Vector3(0, 0, 0),
+    };
+    const w = frameWaypoints(src);
+    expect(w.points.length).toBeGreaterThanOrEqual(2);
+    const curve = createRail(w);
+    for (const p of [0, 0.5, 1]) {
+      const v = railPointAt(curve, p);
+      expect(Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z)).toBe(true);
+    }
+  });
+
+  it('never drops the sacred start or spawn (handover endpoint survives filtering)', () => {
+    const src: OvertureSources = {
+      star: new Vector3(0, 0, 0),
+      worlds: [new Vector3(500, 0, 0)], // glide fallback to worlds[0]
+      swarm: new Vector3(500, 0, 0), // coincident with glide → dropped as inner dup
+      spawn: new Vector3(600, 80, 0),
+    };
+    const w = frameWaypoints(src);
+    expect(w.points[0].distanceTo(w.start)).toBe(0);
+    expect(w.points[w.points.length - 1].distanceTo(w.spawn)).toBe(0);
   });
 });

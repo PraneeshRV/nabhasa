@@ -15,8 +15,8 @@ const LAMBDA_LOOK = 6; // spec: look-at approach rate
 const FOV_MIN = 60; // spec
 const FOV_MAX = 75; // spec
 const SPEED_REF = 120; // wu/s at which FOV reaches max — feel knob
-const OFFSET_BACK = 28; // craft pos − forward·28 (spec)
-const OFFSET_UP = 8; // + up·8 (spec)
+export const OFFSET_BACK = 28; // craft pos − forward·28 (spec)
+export const OFFSET_UP = 8; // + up·8 (spec)
 
 const _desired = new Vector3();
 const _up = new Vector3(0, 1, 0);

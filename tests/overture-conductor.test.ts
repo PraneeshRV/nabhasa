@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   OVERTURE_BEATS,
   HANDOVER_T,
+  glideDriftWeight,
   railParamAt,
   phaseAt,
   beatsCrossedBy,
@@ -149,5 +150,43 @@ describe('Conductor.step — fire-once across the timeline', () => {
     expect(c.step(0.2).fired).toEqual([]);
     const s = c.step(0.7); // forward again — glide newly crossed, swarm NOT re-fired
     expect(s.fired).toEqual(['glide']);
+  });
+});
+
+describe('glideDriftWeight — triangular live-glide blend (Finding 5)', () => {
+  // The glide world keeps orbiting while the rail is baked once; Overture adds
+  // (liveGlidePos − bakedGlidePos)·w to the camera, where w is a TRIANGLE keyed off
+  // the glide/handover beat thresholds: 0 at glide, 1 at the midpoint, 0 at handover.
+  const glideT = OVERTURE_BEATS[3].t;
+  const handoverT = HANDOVER_T;
+  const mid = (glideT + handoverT) / 2;
+
+  it('is 0 at the glide beat, 1 at the midpoint, 0 at the handover beat', () => {
+    expect(glideDriftWeight(glideT)).toBe(0);
+    expect(glideDriftWeight(mid)).toBeCloseTo(1, 6);
+    expect(glideDriftWeight(handoverT)).toBe(0);
+  });
+
+  it('is 0 outside [glide, handover] (rail start and sacred end poses untouched)', () => {
+    expect(glideDriftWeight(0)).toBe(0);
+    expect(glideDriftWeight(glideT - 1e-6)).toBe(0);
+    expect(glideDriftWeight(handoverT + 1e-6)).toBe(0);
+    expect(glideDriftWeight(1)).toBe(0);
+  });
+
+  it('rises monotonically to the peak then falls monotonically', () => {
+    let prev = -Infinity;
+    for (let i = 0; i <= 10; i++) {
+      const t = glideT + (mid - glideT) * (i / 10);
+      expect(glideDriftWeight(t)).toBeGreaterThanOrEqual(prev);
+      prev = glideDriftWeight(t);
+    }
+    expect(prev).toBeCloseTo(1, 6); // peak at midpoint
+    prev = 2;
+    for (let i = 0; i <= 10; i++) {
+      const t = mid + (handoverT - mid) * (i / 10);
+      expect(glideDriftWeight(t)).toBeLessThanOrEqual(prev);
+      prev = glideDriftWeight(t);
+    }
   });
 });

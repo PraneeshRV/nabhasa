@@ -89,4 +89,17 @@ describe('prefersReducedMotion — the bypass branch (no overture → straight t
     delete (globalThis as { matchMedia?: unknown }).matchMedia;
     expect(prefersReducedMotion()).toBe(false);
   });
+
+  it('returns false (never throws) when matchMedia itself throws — the bound-call guard', () => {
+    // Browser constraint (NOT reproducible under node): calling matchMedia detached
+    // from its globalThis — `const mm = g.matchMedia; mm(q)` — throws
+    // `TypeError: Illegal invocation` because the host method requires `this` to be
+    // the window. skip.ts calls `g.matchMedia(q)` (read + call on the SAME reference)
+    // so the throw never fires in a real browser; this stub simulates a throwing
+    // matchMedia and asserts the catch returns false instead of propagating.
+    (globalThis as { matchMedia?: (q: string) => { matches: boolean } }).matchMedia = () => {
+      throw new TypeError('Illegal invocation');
+    };
+    expect(prefersReducedMotion()).toBe(false);
+  });
 });

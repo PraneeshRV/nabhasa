@@ -40,6 +40,27 @@ export const OVERTURE_BEATS: readonly Beat[] = [
 // conductor uses to delimit the phase (single source).
 export const HANDOVER_T = OVERTURE_BEATS[4].t;
 
+// Glide phase start = the glide beat threshold. Exported for glideDriftWeight (and
+// Overture.tsx's per-frame live-glide read) so they key off the exact same value the
+// conductor uses to delimit the phase (single source).
+export const GLIDE_T = OVERTURE_BEATS[3].t;
+
+// Finding 5: the glide world keeps orbiting (~11 wu/s at inner orbit) while the rail
+// is baked once at mount, so the static rail's glide beat drifts off the LIVE world
+// by hundreds of wu after ~50 s. Overture.tsx adds (liveGlidePos − bakedGlidePos)·w
+// to the camera each frame, where w = glideDriftWeight(t). The weight is a TRIANGLE:
+// 0 at the glide beat, 1 at the glide→handover midpoint, 0 at the handover beat — so
+// the rail's start and (sacred) end poses are untouched; only the mid-glide camera is
+// nudged onto the live world. 0 outside [GLIDE_T, HANDOVER_T]. Pure + keyed off
+// OVERTURE_BEATS so the shape is unit-testable without R3F.
+export function glideDriftWeight(t: number): number {
+  const a = GLIDE_T;
+  const b = HANDOVER_T;
+  if (t <= a || t >= b) return 0;
+  const mid = (a + b) / 2;
+  return t <= mid ? (t - a) / (mid - a) : (b - t) / (b - mid);
+}
+
 // Clamp a raw t into the rail domain [0,1]. Skip scrub can overshoot past 1 and a
 // resumed timeline can dip negative; the rail param must stay in-domain.
 export function clampT(t: number): number {

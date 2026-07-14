@@ -35,16 +35,20 @@ export function scrubAdvance(t: number, realDt: number, skipStartT: number): num
 // so it is safe where matchMedia is absent (node, SSR, old browsers) — it returns
 // false rather than throwing, matching Craft.tsx's reduced-motion check but with
 // the node-safe guard the overture's earlier mount point needs.
-type MatchMediaFn = (query: string) => { matches: boolean };
-function getMatchMedia(): MatchMediaFn | undefined {
-  return (globalThis as { matchMedia?: MatchMediaFn }).matchMedia;
-}
-
+//
+// Finding 2: the call must be `g.matchMedia(query)` — property access + call on the
+// SAME reference — so matchMedia runs bound to globalThis. Detaching it into a
+// variable first (`const mm = g.matchMedia; mm(...)`) throws `TypeError: Illegal
+// invocation` in real browsers (matchMedia is a host method that requires its
+// `this` to be the window); the catch then swallowed that and the bypass was dead.
+// Node's matchMedia-less env can't reproduce the binding throw, so the unit test
+// covers the true/false/absent/throws branches and the binding is enforced by
+// reading + calling the same `g.matchMedia` expression here.
 export function prefersReducedMotion(): boolean {
-  const mm = getMatchMedia();
-  if (!mm) return false;
+  const g = globalThis as { matchMedia?: (q: string) => { matches: boolean } };
+  if (typeof g.matchMedia !== 'function') return false;
   try {
-    return mm('(prefers-reduced-motion: reduce)').matches;
+    return g.matchMedia('(prefers-reduced-motion: reduce)').matches;
   } catch {
     return false;
   }
