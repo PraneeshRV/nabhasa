@@ -18,7 +18,8 @@ skill — judges/recruiters judge in the first 60 seconds and never learn WASD (
 |---|---|
 | Direction | Elevate existing build (no rebuild, no scroll-film conversion) |
 | Front door | **Cinematic overture**: 60–90 s camera-on-rails choreographed intro after preloader → seamless handover to free flight. Skippable (any input). `prefers-reduced-motion` → no overture, straight to static/archive path. |
-| Anti-slop rule | **AMENDED**: AI gen allowed in shipped assets, curated. Procedural TSL stays backbone; Higgsfield MCP fills what shaders can't (nebula/skybox plates, texture detail plates, one hero video moment). Every asset: art-direction citation + Praneesh batch approval + `docs/assets-ledger.md` entry. No raw AI output straight to prod. |
+| Anti-slop rule | **AMENDED**: AI gen allowed in shipped assets, curated. Procedural TSL stays backbone; AI fills what shaders can't (nebula/skybox plates, texture detail plates, one hero video moment). Every asset: art-direction citation + Praneesh batch approval + `docs/assets-ledger.md` entry. No raw AI output straight to prod. |
+| Gen tools | **Zero-budget (rev. 2026-07-14, Higgsfield scrapped — no free tier)**: Pollinations MCP (keyless, conductor runs directly) for stills/iterations; Gemini Omni + Google Flow (Veo) via Praneesh — conductor writes exact prompts, Praneesh generates and returns files (standing asset-gen rule). |
 | Builders | GLM 5.2 `GLM_EFFORT=max` for ALL implementation. Conductor (Claude) = packets, gates, verify, merge, commits only. |
 | Ship targets | portfolio → praneeshrv.me, Nabhasa → nabhasa.praneeshrv.me, then Awwwards submission (per locked 2026-07-05 execution plan) |
 
@@ -44,8 +45,9 @@ skill — judges/recruiters judge in the first 60 seconds and never learn WASD (
   static: none (unchanged page).
 
 ### Asset pipeline
-Higgsfield MCP generate → Praneesh batch curation → compress (KTX2 textures,
-AVIF stills, H.265/AV1 video) → `public/assets/` → ledger entry.
+Pollinations MCP (stills, conductor-run) + Gemini Omni/Flow via Praneesh
+(prompt packets from conductor) → Praneesh batch curation → compress (KTX2
+textures, AVIF stills, H.265/AV1 video) → `public/assets/` → ledger entry.
 Weight budget stands: 5–8 MB initial, progressive streaming for the rest.
 
 ## Build waves
@@ -56,7 +58,7 @@ pasted into wave log. Two critics (proof + adversarial) on W2 and W4.
 
 | Wave | Scope | Files (primary) | Gate |
 |---|---|---|---|
-| W0 | Art-direction v2 sign-off + Higgsfield asset pack: skybox plates, nebula plates, per-biome texture detail, 1 hero preloader video candidate. Moodboard → finals. | docs/art-direction.md, docs/assets-ledger.md, public/assets/ | **Praneesh sign-off (blocks all visual waves)** |
+| W0 | Art-direction v2 sign-off + asset pack (Pollinations stills + Gemini Omni/Flow prompt packets for Praneesh): skybox plates, nebula plates, per-biome texture detail, 1 hero preloader video candidate. Moodboard → finals. | docs/art-direction.md, docs/assets-ledger.md, public/assets/ | **Praneesh sign-off (blocks all visual waves)** |
 | W1 | Skybox integration + starfield density/parallax + nebula ambience at spawn | src/world/ (skybox, starfield) | screenshot probe vs art-direction |
 | W2 | World materials v2: TSL displacement, rim atmosphere scattering, night-side emissives, ring/moon/debris polish. Kill the flat-ball look on all 8 worlds. | src/world/, src/shaders/ | probe + 2 critics |
 | W3 | Post stack per tier + beam visibility pass (beams must read at spawn distance) | src/core/ (post), src/signatures/ | probe per tier |
@@ -94,3 +96,4 @@ pasted into wave log. Two critics (proof + adversarial) on W2 and W4.
 ## Revision log
 
 - v1 2026-07-14 — initial, decisions from elevation interview (this session).
+- v1.1 2026-07-14 — Higgsfield scrapped (no free tier). Gen tools → Pollinations MCP + Gemini Omni/Flow via Praneesh.
