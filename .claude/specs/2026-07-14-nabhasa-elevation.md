@@ -79,9 +79,11 @@ pasted into wave log. Two critics (proof + adversarial) on W2 and W4.
 
 - Tier machinery unchanged. Overture failure (asset 404, shader compile fail)
   → log + skip straight to flight; never a black screen.
-- ENGAGE gate currently renders invisible in headless screenshot while DOM
-  buttons exist — investigate in W3 (suspect: text opacity animation or canvas
-  z-order). RECON NEEDED before W4 rail work.
+- ENGAGE gate invisible-in-headless: RESOLVED 2026-07-14 — buttons mount at
+  `opacity: show ? 1 : 0` (CollapsePreloader.tsx:355); `show` flips on rAF-driven
+  preloader beats, and rAF starves in headless tabs (known limitation, REVIEW-HANDOFF).
+  Environment artifact, not a defect. Consequence for gates: preloader/overture
+  visual verification happens in Praneesh's real browser only.
 
 ## Done bar
 

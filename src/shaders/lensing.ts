@@ -13,6 +13,7 @@ import {
   Fn,
   uniform,
   float,
+  vec2,
   vec3,
   cross,
   dot,
@@ -20,15 +21,19 @@ import {
   length,
   abs,
   max,
+  clamp,
   smoothstep,
   step,
   fract,
   floor,
   pow,
   mix,
+  asin,
+  atan,
   positionWorld,
   cameraPosition,
   cubeTexture,
+  texture,
 } from 'three/tsl';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { BackSide } from 'three';
@@ -43,10 +48,20 @@ export const lensingUniforms = {
   dopplerStrength: uniform(0.12), // subtle blue/red tint by tangential direction
   starScale: uniform(64.0), // procedural starfield cell density
   starThreshold: uniform(0.984), // fraction of cells with no star
+  plateIntensity: uniform(0.3), // additive skybox-plate gain (conservative; below stars)
 };
 
-const { rsVis, photonRing, bendK, ringIntensity, ringWidth, dopplerStrength, starScale, starThreshold } =
-  lensingUniforms;
+const {
+  rsVis,
+  photonRing,
+  bendK,
+  ringIntensity,
+  ringWidth,
+  dopplerStrength,
+  starScale,
+  starThreshold,
+  plateIntensity,
+} = lensingUniforms;
 
 // Optional baked starfield cubemap (Task 5 bake; Task 7 locked approach — "sample
 // starfieldCube along bent ray"). Null-safe: cubeTexture() defaults to an empty
@@ -58,6 +73,15 @@ const { rsVis, photonRing, bendK, ringIntensity, ringWidth, dopplerStrength, sta
 // not a graph rebuild — set once, no per-frame work.
 export const skyCube = cubeTexture();
 export const skyCubeBlend = uniform(0.0);
+
+// Optional 2D skybox "plate" (skybox-base.avif): a faint additive nebula/sky tint
+// sampled along the bent ray via equirectangular UV, below the stars. Same
+// null-safe pattern as skyCube — texture() defaults to EmptyTexture (samples
+// black), LensingSkybox swaps plateTex.value once the asset loads. One TSL
+// graph → WGSL + GLSL; until the load lands (or on the static tier, where this
+// shader never runs) the plate is a black no-op. .value is a uniform write, not
+// a graph rebuild.
+export const plateTex = texture();
 
 // hash3 → 1: PCG integer hash (uint bit ops). Mirrors three's nodes/math/Hash.js
 // + src/world/Starfield.tsx hash31 — fract(sin(dot)) diverged WGSL vs WebGL2 for
@@ -121,6 +145,15 @@ export const lensedSky = /*@__PURE__*/ Fn(() => {
   const alpha = bendK.mul(rsVis).div(b);
   const bent = normalize(dir.add(m.mul(alpha)));
 
+  // Skybox plate: equirectangular UV from the bent ray → faint additive sky tint
+  // BELOW the stars. plateTex is EmptyTexture (samples black) until LensingSkybox
+  // loads skybox-base.avif and swaps plateTex.value. Static tier never runs this.
+  const plateUV = vec2(
+    atan(bent.z, bent.x).mul(1 / (2 * Math.PI)).add(0.5),
+    asin(clamp(bent.y, float(-1.0), float(1.0))).mul(1 / Math.PI).add(0.5),
+  );
+  const plate = plateTex.sample(plateUV).rgb.mul(plateIntensity);
+
   // Doppler tint: light dragged with the tangential (spin) direction — subtle.
   const tangent = normalize(cross(vec3(0.0, 1.0, 0.0), normalize(q.add(vec3(0.0, 1e-4, 0.0)))));
   const dopp = dot(dir, tangent).mul(dopplerStrength);
@@ -128,8 +161,10 @@ export const lensedSky = /*@__PURE__*/ Fn(() => {
   // starfield cubemap sampled along the bent direction (1). .sample(bent) clones the
   // cube node with bent as its uv; skyCube.value is swapped in by LensingSkybox once
   // baked and reaches the sample through the node's referenceNode (no graph rebuild).
+  // The plate is added to the incoming light BEFORE the doppler tint so the dragged
+  // light applies to the combined star+plate signal (single shared doppler term).
   const bentSky = mix(skyColor(bent), skyCube.sample(bent).rgb, skyCubeBlend);
-  const sky = bentSky.mul(vec3(float(1.0).sub(dopp), 1.0, float(1.0).add(dopp)));
+  const sky = bentSky.add(plate).mul(vec3(float(1.0).sub(dopp), 1.0, float(1.0).add(dopp)));
 
   // Capture: inside the photon ring everything falls to black.
   const captureMask = smoothstep(photonRing.mul(0.98), photonRing.mul(1.06), b);
