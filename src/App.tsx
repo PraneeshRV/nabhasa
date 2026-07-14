@@ -5,6 +5,7 @@ import { usePerfProbe } from './core/perfProbe';
 import { detectTier, type Tier } from './core/tiers';
 import { QUALITY } from './core/quality';
 import { Starfield } from './world/Starfield';
+import { NebulaPlates } from './world/NebulaPlates';
 import { REGION_PROFILES, useRegion } from './world/regions';
 import type { AmbientLight } from 'three';
 import { NeutronStar, starSpinAngle, starClock } from './world/NeutronStar';
@@ -109,6 +110,7 @@ function MainExperience({ tier }: { tier: Tier }) {
   return (
     <NabhasaCanvas tier={tier}>
       {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
+      <NebulaPlates tier={tier} />
       <NeutronStar />
       <LichPlanets tier={tier} />
       <Aurora tier={tier} />

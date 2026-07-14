@@ -130,11 +130,11 @@ const bakeStarLayer = /* @__PURE__ */ Fn(([dir, scale, thresh]: [any, any, any])
   return core.mul(step(thresh, h)).mul(mag.mul(3.0).add(0.4));
 });
 
-function createBakeStarMaterial() {
+function createBakeStarMaterial(starScale = 64) {
   const mat = new MeshBasicNodeMaterial();
   const dir = normalize(positionLocal);
-  const l1 = bakeStarLayer(dir, 64.0, 0.984);
-  const l2 = bakeStarLayer(dir.add(vec3(3.7, 1.9, 8.2)), 64.0 * 2.3, 0.988);
+  const l1 = bakeStarLayer(dir, starScale, 0.984);
+  const l2 = bakeStarLayer(dir.add(vec3(3.7, 1.9, 8.2)), starScale * 2.3, 0.988);
   const cool = vec3(0.85, 0.92, 1.1);
   const warm = vec3(1.1, 0.88, 0.72);
   mat.colorNode = cool.mul(l1).add(warm.mul(l2).mul(0.6));
@@ -163,13 +163,19 @@ export function getStarfieldCube(): CubeTexture | null {
 // this module (starfieldRT/starfieldCube singletons); the unmount dispose below
 // clears them only when <Starfield> itself unmounts, so a standalone bake persists
 // for the session (Deviation: standalone-bake RT persistence — see LensingSkybox).
-export function bakeStarfieldCube(renderer: Parameters<CubeCamera['update']>[0]): void {
+export function bakeStarfieldCube(
+  renderer: Parameters<CubeCamera['update']>[0],
+  starScale = 64,
+): void {
   if (starfieldCube) return;
   const rt = new CubeRenderTarget(512);
   const cam = new CubeCamera(0.1, SHELL_FAR * 2, rt);
   const scene = new Scene();
   const nebSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createNebulaMaterial());
-  const starSphere = new Mesh(new SphereGeometry(SHELL_FAR, 32, 16), createBakeStarMaterial());
+  const starSphere = new Mesh(
+    new SphereGeometry(SHELL_FAR, 32, 16),
+    createBakeStarMaterial(starScale),
+  );
   scene.add(nebSphere, starSphere);
   // finding 7: dropped the gl.toneMapping=NoToneMapping toggle — WebGPURenderer
   // compiles pipelines async so the sync toggle can't take effect this call,
@@ -206,7 +212,7 @@ export function Starfield({ tier }: { tier: Tier }) {
   // tiers where <Starfield> doesn't mount — same fn, same RT singletons, same dispose.
   useEffect(() => {
     if (tier === 'static') return;
-    bakeStarfieldCube(gl);
+    bakeStarfieldCube(gl, QUALITY[tier].bakeStarScale);
   }, [gl, tier]);
 
   // finding 5: free the baked CubeRenderTarget on unmount and clear the singleton

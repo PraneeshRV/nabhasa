@@ -35,7 +35,14 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { createLensedSkyMaterial, lensingUniforms, skyCube, skyCubeBlend } from '../shaders/lensing';
+import { RepeatWrapping, SRGBColorSpace, TextureLoader } from 'three';
+import {
+  createLensedSkyMaterial,
+  lensingUniforms,
+  plateTex,
+  skyCube,
+  skyCubeBlend,
+} from '../shaders/lensing';
 import { bakeStarfieldCube, getStarfieldCube } from '../world/Starfield';
 import { QUALITY } from '../core/quality';
 import type { Tier } from '../core/tiers';
@@ -50,6 +57,12 @@ const FAR_FLOOR = 20000;
 // that route never mounts this component). Cache the committed baseline so we
 // modulate relative to it and restore on unmount.
 const RING_BASELINE = lensingUniforms.ringIntensity.value;
+// starScale baseline: the procedural skyColor cell density must match the baked
+// cube's density (QUALITY[tier].bakeStarScale) or the skyCubeBlend flip pops —
+// procedural skyColor (blend=0) ↔ cubemap sample (blend=1) read at different
+// densities. We lift starScale to the tier's bake value on mount and restore it
+// on unmount so a later /?dev=lensing session starts at the committed baseline.
+const STAR_SCALE_BASELINE = lensingUniforms.starScale.value;
 // Boost band: full lift at/below NEAR (near-star boundary, r<150 per regions.ts),
 // none at/above FAR (well inside arrival spawn r≈1500). Keeps the ring a "thin
 // anomaly" at arrival (art-direction) and blazes it only on approach.
@@ -75,8 +88,23 @@ export function LensingSkybox({ tier }: { tier: Tier }) {
   // ownership stays in Starfield (we only read getStarfieldCube(), never dispose).
   useEffect(() => {
     if (mode === 'off') return; // 'off' → Starfield owns the sky + its own bake
-    bakeStarfieldCube(gl);
-  }, [gl, mode]);
+    bakeStarfieldCube(gl, QUALITY[tier].bakeStarScale);
+    // Match procedural skyColor cell density to the baked cube so the skyCubeBlend
+    // flip (procedural → cubemap) doesn't pop on a density mismatch.
+    lensingUniforms.starScale.value = QUALITY[tier].bakeStarScale;
+    // Skybox plate: non-suspending async load (matches the cube-bake async idiom).
+    // plateTex stays EmptyTexture (samples black) until the load lands; the .value
+    // write reaches the bent-ray sample via the node's referenceNode (no rebuild).
+    const plate = new TextureLoader().load(
+      `${import.meta.env.BASE_URL}assets/skybox/skybox-base.avif`,
+    );
+    plate.colorSpace = SRGBColorSpace;
+    plate.wrapS = RepeatWrapping; // equirect azimuth wraps; elevation ∈ [0,1]
+    plateTex.value = plate;
+    return () => {
+      plate.dispose();
+    };
+  }, [gl, mode, tier]);
 
   // Guarantee the sphere renders regardless of the default far plane.
   useEffect(() => {
@@ -91,6 +119,7 @@ export function LensingSkybox({ tier }: { tier: Tier }) {
     return () => {
       material.dispose();
       lensingUniforms.ringIntensity.value = RING_BASELINE;
+      lensingUniforms.starScale.value = STAR_SCALE_BASELINE;
     };
   }, [material]);
 
