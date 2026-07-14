@@ -16,6 +16,8 @@ import { PulsarBeams } from './signatures/PulsarBeams';
 import { DysonSwarm } from './signatures/DysonSwarm';
 import { CameraRig } from './flight/cameraRig';
 import { attachInput } from './flight/input';
+import { Overture, type OvertureHudState } from './overture/Overture';
+import { prefersReducedMotion } from './overture/skip';
 import { LensingSkybox } from './signatures/LensingSkybox';
 import { CollapsePreloader } from './signatures/CollapsePreloader';
 import { StaticExperience } from './fallback/StaticExperience';
@@ -95,13 +97,33 @@ function RegionAtmosphere() {
   return <ambientLight ref={ambRef} color="#2a3548" intensity={0} />;
 }
 
-function MainExperience({ tier }: { tier: Tier }) {
-  // Flight input (spec Task 3): attach keyboard/touch once on mount; attachInput
+// W4 overture wiring: MainExperience mounts the Overture as the SOLE camera driver
+// first; the flight stack (Craft + CameraRig + samplers) mounts only on handover.
+// Craft CANNOT mount during the overture — it sits in the star's gravity well from
+// frame one (CraftBody adds gravity force every physics step), so a 75 s intro would
+// drift it off the spawn pose the rail's chase-pose endpoint was derived from.
+function MainExperience({
+  tier,
+  flight,
+  onHandover,
+  onHud,
+}: {
+  tier: Tier;
+  flight: boolean;
+  onHandover: () => void;
+  onHud: (h: OvertureHudState) => void;
+}) {
+  // Flight input (spec Task 3): attach keyboard/touch on handover; attachInput
   // returns its cleanup. Desktop live scene only — mobile film + the static route
   // never render MainExperience, so kbd never binds there (constraint honored).
+  // NOT attached during the overture: any key is the overture's SKIP gesture and
+  // must not also thrust the (unmounted) craft's input state.
   // Gamepad is polled per physics step inside CraftBody (input.pollGamepad), so no
   // extra per-frame wiring is needed.
-  useEffect(() => attachInput(document.body), []);
+  useEffect(() => {
+    if (!flight) return;
+    return attachInput(document.body);
+  }, [flight]);
 
   // Sky ownership (spec Task 7 step 3): lensing owns the sky on every lensing tier
   // to avoid a double sky; <Starfield> owns it only on the 'off' (static) tier.
@@ -119,13 +141,19 @@ function MainExperience({ tier }: { tier: Tier }) {
       <PulsarBeams tier={tier} />
       <DysonSwarm tier={tier} />
       <RegionAtmosphere />
-      <Suspense fallback={null}>
-        <Beacons />
-        <Craft />
-        <HudSampler />
-        <ApproachSampler />
-      </Suspense>
-      <CameraRig />
+      {flight ? (
+        <>
+          <Suspense fallback={null}>
+            <Beacons />
+            <Craft />
+            <HudSampler />
+            <ApproachSampler />
+          </Suspense>
+          <CameraRig />
+        </>
+      ) : (
+        <Overture tier={tier} onHandover={onHandover} onHud={onHud} />
+      )}
       <PerfLogger />
     </NabhasaCanvas>
   );
@@ -187,6 +215,22 @@ function engageAudio() {
 function ExperienceShell({ tier }: { tier: Tier }) {
   const rapierReady = useRapierWarm();
   const [entered, setEntered] = useState(false);
+  // W4 overture state: `flight` flips once on handover (Overture unmounts, flight
+  // stack mounts); overtureHud drives the DOM overlay (HUD fade ramp across the
+  // last ~11 s + the "YOU HAVE THE CRAFT" beat). The fade is quantized to 0.02
+  // before setState so the per-frame onHud stream costs ~50 re-renders across the
+  // whole ramp instead of one per frame (never setState in useFrame idiom, kept
+  // honest at the App boundary).
+  // Reduced-motion belt-and-suspenders: detectTier already routes reduced-motion
+  // to the static tier (this shell never mounts), but `?forceTier=` bypasses that
+  // check — so a reduced-motion user on a forced live tier still skips the
+  // overture and starts directly in flight.
+  const [flight, setFlight] = useState(() => prefersReducedMotion());
+  const [overtureHud, setOvertureHud] = useState<OvertureHudState>({ fade: 0, text: '' });
+  const onHud = (h: OvertureHudState) => {
+    const fade = Math.round(h.fade * 50) / 50;
+    setOvertureHud((prev) => (prev.fade === fade && prev.text === h.text ? prev : { fade, text: h.text }));
+  };
   // Own the audio graph's lifetime: engageAudio fires in the ENGAGE gesture inside
   // this shell, so on unmount stop+disconnect the ambient bed + the active sonify
   // handle (sonify.ts active registry). Reset audioEngaged so a remount re-arms on
@@ -203,13 +247,65 @@ function ExperienceShell({ tier }: { tier: Tier }) {
   );
   return (
     <>
-      {entered && <MainExperience tier={tier} />}
+      {entered && (
+        <MainExperience tier={tier} flight={flight} onHandover={() => setFlight(true)} onHud={onHud} />
+      )}
       {entered && (
         <Suspense fallback={null}>
-          <Telemetry />
+          {/* Spec: "HUD fades in during last 10 s" — the overture's handover-phase
+              ramp drives Telemetry's opacity; after handover it is fully opaque.
+              Full-viewport fixed wrapper so .hud-root's fixed inset:0 resolves to
+              the same geometry (opacity<1 makes this a containing block). */}
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              opacity: flight ? 1 : overtureHud.fade,
+              transition: 'opacity 200ms linear',
+              pointerEvents: 'none',
+            }}
+          >
+            <Telemetry />
+          </div>
+        </Suspense>
+      )}
+      {/* Own Suspense boundaries: these mount at the flight flip, and a lazy
+          sibling suspending in Telemetry's boundary would unmount the visible,
+          just-faded-in HUD right at the handover moment. */}
+      {entered && flight && (
+        <Suspense fallback={null}>
           <MissionResult />
+        </Suspense>
+      )}
+      {entered && flight && (
+        <Suspense fallback={null}>
           <ApproachPanel />
         </Suspense>
+      )}
+      {/* Overture beat: "YOU HAVE THE CRAFT" — centered banner, HUD typography
+          tokens (hud.css palette), rides the same fade ramp, gone at handover. */}
+      {entered && !flight && overtureHud.text && (
+        <div
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            top: '62%',
+            textAlign: 'center',
+            opacity: overtureHud.fade,
+            color: '#afe3ff',
+            fontFamily:
+              "'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+            fontSize: 15,
+            letterSpacing: '0.35em',
+            textShadow: '0 0 12px rgba(175, 227, 255, 0.45)',
+            pointerEvents: 'none',
+            zIndex: 21,
+          }}
+        >
+          {overtureHud.text}
+        </div>
       )}
       {!entered && (
         <CollapsePreloader
