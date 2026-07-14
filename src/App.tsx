@@ -16,6 +16,7 @@ import { DysonSwarm } from './signatures/DysonSwarm';
 import { CameraRig } from './flight/cameraRig';
 import { attachInput } from './flight/input';
 import { Overture, type OvertureHudState } from './overture/Overture';
+import { prefersReducedMotion } from './overture/skip';
 import { LensingSkybox } from './signatures/LensingSkybox';
 import { CollapsePreloader } from './signatures/CollapsePreloader';
 import { StaticExperience } from './fallback/StaticExperience';
@@ -218,7 +219,11 @@ function ExperienceShell({ tier }: { tier: Tier }) {
   // before setState so the per-frame onHud stream costs ~50 re-renders across the
   // whole ramp instead of one per frame (never setState in useFrame idiom, kept
   // honest at the App boundary).
-  const [flight, setFlight] = useState(false);
+  // Reduced-motion belt-and-suspenders: detectTier already routes reduced-motion
+  // to the static tier (this shell never mounts), but `?forceTier=` bypasses that
+  // check — so a reduced-motion user on a forced live tier still skips the
+  // overture and starts directly in flight.
+  const [flight, setFlight] = useState(() => prefersReducedMotion());
   const [overtureHud, setOvertureHud] = useState<OvertureHudState>({ fade: 0, text: '' });
   const onHud = (h: OvertureHudState) => {
     const fade = Math.round(h.fade * 50) / 50;
@@ -260,8 +265,19 @@ function ExperienceShell({ tier }: { tier: Tier }) {
           >
             <Telemetry />
           </div>
-          {flight && <MissionResult />}
-          {flight && <ApproachPanel />}
+        </Suspense>
+      )}
+      {/* Own Suspense boundaries: these mount at the flight flip, and a lazy
+          sibling suspending in Telemetry's boundary would unmount the visible,
+          just-faded-in HUD right at the handover moment. */}
+      {entered && flight && (
+        <Suspense fallback={null}>
+          <MissionResult />
+        </Suspense>
+      )}
+      {entered && flight && (
+        <Suspense fallback={null}>
+          <ApproachPanel />
         </Suspense>
       )}
       {/* Overture beat: "YOU HAVE THE CRAFT" — centered banner, HUD typography
