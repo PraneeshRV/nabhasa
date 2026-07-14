@@ -42,6 +42,9 @@ import {
   max,
   sin,
   smoothstep,
+  step,
+  abs,
+  cross,
   time,
   positionLocal,
   normalLocal,
@@ -50,6 +53,7 @@ import {
   cameraPosition,
   mx_fractal_noise_float,
   mx_worley_noise_float,
+  transformNormalToView,
 } from 'three/tsl';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 
@@ -290,6 +294,35 @@ export const LICH_SYSTEM: LichBodySpec[] = [
 const EMBER = color('#C46A4A');
 const STARHOT = color('#AFE3FF');
 
+// Surface-normal relief for displaced biomes (W2). three's NodeMaterial does NOT
+// recompute normals from a displaced positionNode — setupNormal() falls back to
+// the geometry normal attribute, so vertices displaced in the vertex stage still
+// shade as a smooth sphere (the flat-ball tell). This perturbs the smooth normal
+// by the finite-difference gradient of a 2-octave fractal-noise height field
+// (cheaper than the 5-oct color noise), re-sampled at two in-plane offsets.
+// Pole-stable tangent frame (swaps the reference axis near the poles so the
+// cross product never collapses to NaN). One definition; each displaced branch
+// calls it with that branch's noise scale + a bump strength.
+const bumpNormal = (scale: number, amp: number) => {
+  const s = float(scale);
+  const a = float(amp);
+  const n = normalLocal;
+  const ref = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), step(float(0.99), abs(n.y)));
+  const t1 = normalize(ref.sub(n.mul(dot(n, ref))));
+  const t2 = cross(n, t1);
+  const eps = float(0.04);
+  const p = positionLocal;
+  const hC = mx_fractal_noise_float(p.mul(s), 2, 2.0, 0.5, 1.0);
+  const hX = mx_fractal_noise_float(p.add(t1.mul(eps)).mul(s), 2, 2.0, 0.5, 1.0);
+  const hY = mx_fractal_noise_float(p.add(t2.mul(eps)).mul(s), 2, 2.0, 0.5, 1.0);
+  // normalNode is consumed as the VIEW-space normal (NodeMaterial.setupNormal
+  // returns it verbatim into the normalView pipeline) — transform the perturbed
+  // LOCAL normal to view space or lighting rotates with the camera.
+  return transformNormalToView(
+    normalize(n.sub(t1.mul(hX.sub(hC)).mul(a)).sub(t2.mul(hY.sub(hC)).mul(a))),
+  );
+};
+
 // ── Biome material factory (TSL MeshStandardNodeMaterial, star = sole light) ─
 // Extends the original fractal + worley + displace + ember-rim skeleton; the
 // `default` branch is the original Lich rocky material verbatim, so LICH_SYSTEM
@@ -323,6 +356,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cDark, cLight, t01.mul(0.5)).mul(float(1.0).sub(craterMask.mul(0.4)));
       const h = mx_fractal_noise_float(base.mul(0.6), 4, 2.0, 0.5, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(h.mul(spec.displaceAmp * spec.radiusWu)));
+      mat.normalNode = bumpNormal(0.6, 3.0); // crust-crack relief catches the Ember
       mat.roughnessNode = float(0.9);
       mat.metalnessNode = float(0.0);
       const lava = smoothstep(0.55, 0.85, cells);
@@ -344,7 +378,10 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.roughnessNode = mix(float(0.15), float(0.85), land); // sea glossy, land rough
       mat.metalnessNode = float(0.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(spec.displaceAmp * spec.radiusWu * 0.2));
-      mat.emissiveNode = EMBER.mul(fresnel.mul(day).mul(0.12));
+      // Pale atmosphere limb (Rayleigh scatter), sub-1 — Praesidium's only >1 glow
+      // is the aurora (separate mount). Not day-gated: the limb reads around the
+      // terminator too (the soft world, per art-direction lighting key).
+      mat.emissiveNode = cLight.mul(fresnel).mul(float(0.3));
       break;
     }
     case 'glass': {
@@ -352,6 +389,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(craterMask.mul(0.3)));
       const spire = mx_fractal_noise_float(base.mul(1.1), 4, 2.0, 0.6, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(spire.mul(spec.displaceAmp * spec.radiusWu)));
+      mat.normalNode = bumpNormal(1.1, 4.0); // faceted spire edges catch the Ember as bright shards
       mat.roughnessNode = mix(float(0.05), float(0.35), t01); // glass glossy
       mat.metalnessNode = float(0.0);
       const lattice = smoothstep(0.6, 0.85, cells);
@@ -363,6 +401,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(craterMask.mul(0.4)));
       const h = mx_fractal_noise_float(base.mul(0.6), 4, 2.0, 0.5, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(h.mul(spec.displaceAmp * spec.radiusWu)));
+      mat.normalNode = bumpNormal(0.6, 2.0); // forge mottle relief (subtle)
       mat.roughnessNode = float(0.75);
       mat.metalnessNode = float(0.1);
       const foundry = smoothstep(0.7, 0.9, cells);
@@ -377,6 +416,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(vine.mul(0.5)));
       const h = mx_fractal_noise_float(base.mul(0.6), 4, 2.0, 0.5, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(h.mul(spec.displaceAmp * spec.radiusWu)));
+      mat.normalNode = bumpNormal(0.6, 2.0); // canopy relief (subtle)
       mat.roughnessNode = float(0.8);
       mat.metalnessNode = float(0.0);
       const city = smoothstep(0.55, 0.8, cells);
@@ -388,6 +428,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(craterMask.mul(0.5)));
       const crack = mx_fractal_noise_float(base.mul(2.4), 5, 2.2, 0.6, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(crack.mul(spec.displaceAmp * spec.radiusWu)));
+      mat.normalNode = bumpNormal(2.4, 5.0); // fracture relief — cold rock, no self-light
       mat.roughnessNode = float(0.85);
       mat.metalnessNode = float(0.02);
       mat.emissiveNode = EMBER.mul(fresnel.mul(day).mul(0.08)); // faint rim only
@@ -409,6 +450,10 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, mix(bands, swirl, 0.4));
       mat.roughnessNode = float(0.6);
       mat.metalnessNode = float(0.0);
+      // Atmospheric cloud-band turbulence (NOT a hard surface: no silhouette
+      // displacement, displaceAmp stays 0 — the bands just read as flowing 3D
+      // relief instead of painted stripes). Subtle amp; bands still gradate at the limb.
+      mat.normalNode = bumpNormal(0.5, 1.0);
       mat.emissiveNode = EMBER.mul(fresnel.mul(day).mul(0.06));
       break;
     }

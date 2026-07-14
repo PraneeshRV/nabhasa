@@ -32,7 +32,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three/webgpu';
-import { color, float, fract, length, step, uv } from 'three/tsl';
+import { color, float, fract, length, mix, smoothstep, step, uv } from 'three/tsl';
 import { REACH_SYSTEM, createPlanetMaterial, type PlanetSpec } from './planets';
 import { detectTier, type Tier } from '../core/tiers';
 import { QUALITY } from '../core/quality';
@@ -195,17 +195,29 @@ function Ring({ spec }: { spec: PlanetSpec }) {
   const ringHex = isGiant ? '#dcc78e' : '#4a3528'; // Corona band-mid / Kiln dark metal
   const material = useMemo(() => {
     const m = new THREE.MeshStandardNodeMaterial();
-    m.colorNode = color(ringHex);
     m.roughnessNode = float(0.7);
     m.metalnessNode = float(0.0);
     // ringGeometry uv maps the annulus into a centered square, so radial distance
-    // from center = length(uv·2 − 1) ∈ [inner/outer, 1]. Concentric Cassini bands.
+    // from center = length(uv·2 − 1) ∈ [inner/outer, 1].
     const radial = length(uv().mul(float(2)).sub(float(1)));
-    m.opacityNode = step(float(0.5), fract(radial.mul(float(bands))));
+    const bandPhase = fract(radial.mul(float(bands)));
+    if (isGiant) {
+      // Corona: cream↔amber banded albedo (the two gas-giant palette albedos,
+      // ≤1, no self-light — Corona has no emissive) + a Cassini-style dark gap.
+      m.colorNode = mix(color('#e8d9b0'), color('#c79a52'), bandPhase);
+      const gap = smoothstep(float(0.77), float(0.78), radial).mul(
+        smoothstep(float(0.795), float(0.785), radial),
+      );
+      m.opacityNode = smoothstep(float(0.3), float(0.55), bandPhase).mul(float(1.0).sub(gap));
+    } else {
+      // Kiln: dark metal habitat tiles (unchanged).
+      m.colorNode = color(ringHex);
+      m.opacityNode = step(float(0.5), bandPhase);
+    }
     m.transparent = true;
     m.side = THREE.DoubleSide;
     return m;
-  }, [ringHex, bands]);
+  }, [ringHex, bands, isGiant]);
   useEffect(() => () => material.dispose(), [material]);
 
   return (
@@ -220,7 +232,7 @@ function Ring({ spec }: { spec: PlanetSpec }) {
 function Debris({ spec, k }: { spec: PlanetSpec; k: number }) {
   const base = spec.props?.debris ?? 0;
   const count = Math.max(8, Math.round(base * k));
-  const material = useMemo(() => propMaterial('#8a8a96', 0.1, 0.9), []);
+  const material = useMemo(() => propMaterial('#8a8a96', 0.6, 0.35), []); // metallic glint — dodeca facets catch the Ember as they tumble (albedo ≤1, NO emissive: Riven has no self-light)
   useEffect(() => () => material.dispose(), [material]);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const acc = useRef(0);

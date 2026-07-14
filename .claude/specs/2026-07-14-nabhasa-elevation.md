@@ -85,6 +85,13 @@ pasted into wave log. Two critics (proof + adversarial) on W2 and W4.
   Environment artifact, not a defect. Consequence for gates: preloader/overture
   visual verification happens in Praneesh's real browser only.
 
+## Deferred residuals (W2 critics, 2026-07-14)
+
+- Polar tangent-frame seam at |lat|≳82° (step-swap in bumpNormal) — visual check
+  in W6 fly session; fix = smooth frame blend if visible.
+- Corona cloud-turbulence bumpNormal = 6 noise evals/fragment on the largest
+  body — W6 perf matrix decides (tier-gate or octave cut if fps dips).
+
 ## Done bar
 
 1. Both sites live on their domains.
