@@ -187,3 +187,29 @@ REJECT IF: explosion reads outward-fireball instead of inward collapse ·
 purple/teal cast · busy debris · camera shake · any text.
 NOTE: warm ramp on the supergiant is the sanctioned exception (art-direction
 --irradiated note: dying giant may pass warm blackbody ramp ending at --star-hot).
+
+### PKT-V1b — Collapse echo plate, revision (after take-a review 2026-07-15)
+Take-a failure modes (conductor frame review): Veo watermark bottom-right; collapse
+read as a slow soft INFLATING blue balloon (no violence, shell filled the frame as a
+flat banding-prone gradient); opening supergiant too saturated orange.
+Tool: Google Flow (Veo) · 8s · 16:9 · Generate 2 takes · Save as: `public/assets/_incoming/video/collapse-echo-{c,d}.mp4`
+PROMPT: Photorealistic deep-space shot, static wide camera, near-black #030407
+void with sparse cold stars. 0-3s: a dim, desaturated ember-red supergiant
+hangs motionless, its surface slowly dimming and granulating, light visibly
+draining inward. 3-4s: the star SNAPS inward in under half a second — a
+violent implosion, not an explosion — collapsing to a single blinding
+blue-white point #AFE3FF. 4-6s: one thin, crisp spherical shockwave ring of
+pale blue light races outward and PAST the camera edges, staying a thin shell
+that fades as it expands — it never fills the frame with glow. 6-8s: black
+sky, sparse stars, and the tiny blue-white point pulsing quietly at center.
+Interstellar visual discipline: deep blacks, restrained, no lens flare, no
+purple, no teal, no debris field, no soft balloon of light, no frame-filling
+gradient sphere, no text, no watermark.
+REJECT IF: shockwave fills frame as smooth gradient (banding) · implosion
+slower than ~0.5s / reads gentle · purple/teal cast · final point not
+blue-white #AFE3FF family · busy debris · camera moves.
+NOTE: if the Veo tier badge ("Veo", bottom-right) survives on an otherwise
+good take, it is NOT a reject — conductor crops ~5% bottom-right in the
+compression pass. If BOTH takes still read soft: drop the video entirely —
+the procedural CollapsePreloader burst stays the collapse moment (ponytail:
+the video is a candidate enhancement, not a dependency).
