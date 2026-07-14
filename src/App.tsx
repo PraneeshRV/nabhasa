@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { NabhasaCanvas } from './core/renderer';
+import { PostFx } from './core/post';
 import { useFrame, useThree } from '@react-three/fiber';
 import { usePerfProbe } from './core/perfProbe';
 import { detectTier, type Tier } from './core/tiers';
@@ -109,6 +110,7 @@ function MainExperience({ tier }: { tier: Tier }) {
   const lensing = QUALITY[tier].lensing;
   return (
     <NabhasaCanvas tier={tier}>
+      <PostFx tier={tier} />
       {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
       <NebulaPlates tier={tier} />
       <NeutronStar />
