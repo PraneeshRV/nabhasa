@@ -213,3 +213,14 @@ good take, it is NOT a reject — conductor crops ~5% bottom-right in the
 compression pass. If BOTH takes still read soft: drop the video entirely —
 the procedural CollapsePreloader burst stays the collapse moment (ponytail:
 the video is a candidate enhancement, not a dependency).
+
+### PKT-05b — Kiln plate, revision (after take-a curation 2026-07-15)
+Take-a REJECTED on its own REJECT-IF line: the foundry hot-spots rendered as
+soft-edged glowing orbs with halo falloff = baked bloom in albedo (the one hard
+rule). Everything else (copper sheeting #B07A4A, rust, palette) passed.
+Tool: same as PKT-05 · Generate 2 · Save as: `public/assets/_incoming/biomes/biome-kiln-{c,d}.png`
+PROMPT: use PKT-05's prompt verbatim, but replace the hot-spot sentence with:
+"Sparse foundry hot-spots #FF7A2A appear as HARD-EDGED flat opaque orange
+discs and splatters — solid paint-like fills with crisp boundaries, zero
+halo, zero gradient falloff, zero glow, as if vinyl decals on the metal."
+REJECT IF: any halo or radial gradient around any hot-spot · otherwise same as PKT-05.
