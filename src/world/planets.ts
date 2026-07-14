@@ -334,7 +334,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
   const base = positionLocal.mul(uScale);
 
   // Shared terrain fields.
-  const terrain = mx_fractal_noise_float(base, 5, 2.0, 0.55, 1.0); // ~[-1,1]
+  const terrain = mx_fractal_noise_float(base, 5, 2.0, 0.55, 1.0); // raw octave sum ±~2.1 — clamp below is LOAD-BEARING (albedo ≤1 rule)
   const t01 = clamp(terrain.mul(0.5).add(0.5), 0.0, 1.0);
   const cells = mx_worley_noise_float(base.mul(1.7));
 
@@ -446,7 +446,10 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
         1.0,
       )
         .mul(0.5)
-        .add(0.5);
+        .add(0.5)
+        // 4-oct noise is ±~1.9 raw, not ±1 — clamp so the albedo mix can never
+        // extrapolate past the palette (≤1 rule holds by construction, not luck)
+        .clamp(0.0, 1.0);
       mat.colorNode = mix(cLight, cDark, mix(bands, swirl, 0.4));
       mat.roughnessNode = float(0.6);
       mat.metalnessNode = float(0.0);
