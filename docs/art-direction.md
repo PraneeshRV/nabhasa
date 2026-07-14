@@ -14,6 +14,10 @@
 > **STATUS v2.1:** Spec `2026-07-14-nabhasa-elevation.md` amendment — AI-generated
 > assets MAY ship after curation (this doc §Generated assets). Approved with the
 > elevation spec 2026-07-14; supersedes "AI gen = moodboard-never-shipped" below.
+>
+> **SIGN-OFF 2026-07-14 (W0 gate):** Praneesh approved v2 + v2.1 together with the
+> W0 moodboard + candidate batch ("everything looks good"). v2 is no longer
+> advisory; builders use v2 values. W1+ unblocked.
 
 This doc gates all visual work. Every scene, shader, and post decision cites this. If a
 scene wants something not covered here, amend this doc first, then build.

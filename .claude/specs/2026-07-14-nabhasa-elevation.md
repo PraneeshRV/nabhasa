@@ -97,3 +97,4 @@ pasted into wave log. Two critics (proof + adversarial) on W2 and W4.
 
 - v1 2026-07-14 — initial, decisions from elevation interview (this session).
 - v1.1 2026-07-14 — Higgsfield scrapped (no free tier). Gen tools → Pollinations MCP + Gemini Omni/Flow via Praneesh.
+- W0 GATE PASSED 2026-07-14 — Praneesh sign-off: art-direction v2+v2.1, moodboard ×12, candidates. Shipped interim: skybox-base.avif, nebula-wisp/dense.avif (ledgered). Omni/Flow packet outputs (docs/prompt-packets-w0.md) still pending Praneesh runs — finals swap in when delivered. W1 unblocked.
