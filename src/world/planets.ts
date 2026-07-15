@@ -84,7 +84,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     title: 'the burning world',
     biome: 'magma',
     myth: 'Too hot to tame, too bright to ignore — the Kindled left it burning as a reminder of what the Ember still is.',
-    radiusWu: 3.0,
+    radiusWu: 9.0,
     orbitWu: 130,
     periodS: 50,
     axialDayS: 38,
@@ -98,7 +98,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     title: 'the garden',
     biome: 'ocean',
     myth: 'The closest echo of the world they lost; the one place they allow themselves to be sentimental.',
-    radiusWu: 5.0,
+    radiusWu: 15.0,
     orbitWu: 260,
     periodS: 141,
     axialDayS: 52,
@@ -114,7 +114,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     title: 'the library',
     biome: 'glass',
     myth: 'Built so no Kindled would ever forget; its surface is shelves, and every shelf is full.',
-    radiusWu: 4.6,
+    radiusWu: 13.8,
     orbitWu: 400,
     periodS: 269,
     axialDayS: 61,
@@ -129,7 +129,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     title: 'the forge',
     biome: 'industrial',
     myth: 'Where every dream is tried in fire; half its craters are stars that didn’t take.',
-    radiusWu: 5.8,
+    radiusWu: 17.4,
     orbitWu: 560,
     periodS: 448,
     axialDayS: 70,
@@ -137,7 +137,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     crater: 0.5,
     displaceAmp: 0.02,
     massEarthsTuned: 1.2,
-    props: { ring: { inner: 8.7, outer: 11.0, tilt: 0.25 }, tether: true }, // orbital habitat ring + elevator
+    props: { ring: { inner: 26.1, outer: 33.0, tilt: 0.25 }, tether: true }, // orbital habitat ring + elevator
     contentSlot: 'Projects',
   },
   // ── swarm gap (900, r≈250) — architecture untouched, sits between Kiln & Vesper ──
@@ -146,7 +146,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     title: 'the first colony',
     biome: 'bioluminescent',
     myth: 'First lit when the Ember was new; its people went to the stars but left the lights on.',
-    radiusWu: 6.2,
+    radiusWu: 18.6,
     orbitWu: 1250,
     periodS: 1667,
     axialDayS: 47,
@@ -161,7 +161,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     title: 'the shattered world',
     biome: 'shattered',
     myth: 'A world that died of its own ambition; its rubble is now the Reach’s outer wall.',
-    radiusWu: 5.4, // fractured core; debris belt is a render prop
+    radiusWu: 16.2, // fractured core; debris belt is a render prop
     orbitWu: 1600,
     periodS: 2164,
     axialDayS: 55,
@@ -176,7 +176,7 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     title: 'the ringed giant',
     biome: 'gasGiant',
     myth: 'Uninhabitable, unharnessable — kept only because it is beautiful, and beauty is a Kindled engineering constraint.',
-    radiusWu: 9.0,
+    radiusWu: 27.0,
     orbitWu: 2050,
     periodS: 2800,
     axialDayS: 22,
@@ -184,14 +184,14 @@ export const REACH_SYSTEM: PlanetSpec[] = [
     crater: 0.0,
     displaceAmp: 0.0, // fluid — no silhouette displacement
     massEarthsTuned: 95, // massive but far → negligible pull (honest)
-    props: { ring: { inner: 12.0, outer: 22.0, tilt: 0.45 }, moons: 3 }, // vast ring + shepherd moons
+    props: { ring: { inner: 36.0, outer: 66.0, tilt: 0.45 }, moons: 3 }, // vast ring + shepherd moons
   },
   {
     name: 'Threshold',
     title: 'the gate station',
     biome: 'station',
     myth: 'Every word to a hundred galaxies passes through this ring; it is the loudest mailbox in the Reach.',
-    radiusWu: 3.0, // structure half-extent proxy (NOT a sphere — dedicated render path in P1.2)
+    radiusWu: 9.0, // structure half-extent proxy (NOT a sphere — dedicated render path in P1.2)
     orbitWu: 2700,
     periodS: 3797,
     axialDayS: 120, // ring spin

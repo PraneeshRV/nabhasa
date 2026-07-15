@@ -50,8 +50,8 @@ const THRESHOLD_INDEX = 7;
 // ThresholdStructure): rotation [PI/2 + 0.3, 0, 0], ringGeometry [3.4, 3.8, 64].
 // If P1.2 changes that placeholder, update these to match.
 const GATE_ROT: [number, number, number] = [Math.PI / 2 + 0.3, 0, 0];
-const GATE_INNER = 3.4;
-const GATE_CENTER_R = 3.6; // annulus centerline (3.4–3.8)
+const GATE_INNER = 10.2;
+const GATE_CENTER_R = 10.8; // annulus centerline (10.2–11.4)
 
 // --star-hot #AFE3FF (art-direction: the Ember re-emitted — Threshold's gate is
 // the one place self-illumination outweighs reflected Ember).
@@ -141,7 +141,7 @@ export function JumpGate({ tier }: { tier: Tier }) {
           dark plane — no z-fight with the placeholder's flat annulus. */}
       <group rotation={GATE_ROT}>
         <mesh material={rimMat} position={[0, 0, 0.05]}>
-          <torusGeometry args={[GATE_CENTER_R, 0.04, 16, 96]} />
+          <torusGeometry args={[GATE_CENTER_R, 0.12, 16, 96]} />
         </mesh>
       </group>
       {/* localized fold disc (webgpu only): camera-facing, sized to the ring hole */}

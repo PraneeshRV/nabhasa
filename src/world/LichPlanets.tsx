@@ -14,7 +14,7 @@
 // shape as flight/craftState), written in place once/frame, read by
 // flight/gravity + flight/Craft's kinematic planet-collider proxy. Craft.tsx's
 // PlanetColliders maps over gravity.PLANET_RADII_WU and syncs to
-// getPlanetPositions() — so Threshold's ~6 wu collider is provisioned when P1.3
+// getPlanetPositions() — so Threshold's ~18 wu collider is provisioned when P1.3
 // widens PLANET_RADII_WU to 8. We do NOT register Rapier bodies here: that would
 // double-register + drag rapier into the world chunk (violates "flight
 // untouched" / "no new deps"). The A1 close-out fix keeps ONE collider proxy in
@@ -295,13 +295,13 @@ function AntennaFarm({ k, hull }: { k: number; hull: THREE.MeshStandardNodeMater
   const base = 28;
   const count = Math.max(8, Math.round(base * k));
   const mesh = useMemo(() => {
-    const geo = new THREE.CylinderGeometry(0.03, 0.05, 0.6, 5);
+    const geo = new THREE.CylinderGeometry(0.09, 0.15, 1.8, 5);
     const m = new THREE.InstancedMesh(geo, hull, count);
     const d = new THREE.Object3D();
     const dir = new THREE.Vector3();
     for (let i = 0; i < count; i++) {
       fibDir(i, count, dir);
-      d.position.copy(dir).multiplyScalar(2.6); // just outside the torus
+      d.position.copy(dir).multiplyScalar(7.8); // just outside the torus
       d.quaternion.setFromUnitVectors(UP, dir); // orient the +Y cylinder along dir
       d.scale.set(1, 1, 1);
       d.updateMatrix();
@@ -338,13 +338,13 @@ function ThresholdStructure({ spec, k }: { spec: PlanetSpec; k: number }) {
       <group ref={spinRef}>
         {/* habitat torus */}
         <mesh rotation={[Math.PI / 2, 0, 0]} material={hull}>
-          <torusGeometry args={[2.2, 0.45, 12, 48]} />
+          <torusGeometry args={[6.6, 1.35, 12, 48]} />
         </mesh>
         <AntennaFarm k={k} hull={hull} />
       </group>
       {/* dark gate-ring placeholder (jump-gate FX = P5b) */}
       <mesh rotation={[Math.PI / 2 + 0.3, 0, 0]} material={gate}>
-        <ringGeometry args={[3.4, 3.8, 64]} />
+        <ringGeometry args={[10.2, 11.4, 64]} />
       </mesh>
     </group>
   );

@@ -170,9 +170,10 @@ describe('REACH_SYSTEM — exact contract pins (orbit / mass / radius)', () => {
 
   it('radiusWu pins to the contract radii (Threshold = structure half-extent proxy)', () => {
     // The contract table marks Threshold (#8) radius as "(structure)" — it is a
-    // station, not a sphere. 3.0 here is the structure half-extent proxy the
-    // dedicated P1.2 render path consumes; the seven spheres pin their table radii.
-    expect(REACH_SYSTEM.map((w) => w.radiusWu)).toEqual([3.0, 5.0, 4.6, 5.8, 6.2, 5.4, 9.0, 3.0]);
+    // station, not a sphere. 9.0 here is the structure half-extent proxy the
+    // dedicated P1.2 render path consumes; the seven spheres pin their table radii
+    // (×3 scale rebalance 2026-07-15 — worlds read as worlds next to the 1.5 wu craft).
+    expect(REACH_SYSTEM.map((w) => w.radiusWu)).toEqual([9.0, 15.0, 13.8, 17.4, 18.6, 16.2, 27.0, 9.0]);
   });
 });
 

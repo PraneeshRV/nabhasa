@@ -22,7 +22,6 @@ import * as THREE from 'three/webgpu';
 import { QUALITY } from '../core/quality';
 import type { Tier } from '../core/tiers';
 import { usePerfProbe } from '../core/perfProbe';
-import { STAR_RADIUS } from '../world/scale';
 import { createStarSurfaceMaterial } from '../shaders/starSurface';
 import {
   collapseUniforms,
@@ -40,8 +39,12 @@ const PHASE = { LOAD: 0, IMPLODE: 1, BLACK: 2, SETTLE: 3, PULLBACK: 4, ENGAGE: 5
 const DUR = { IMPLODE: 0.3, BLACK: 0.12, SETTLE: 0.75, PULLBACK: 0.85 };
 const MIN_LOAD_S = 2.2; // play the compression beat even on a fast machine
 const SAFETY_S = 9; // never stall — proceed past a hung loader
-const GIANT_SCALE = 3.4; // ×STAR_RADIUS(10) = 34 wu → fills the frame at z=60
-const NEUTRON_SCALE = 0.1; // ×STAR_RADIUS = 1 wu → tiny blinding dot
+// The preloader is its OWN composed scene (fixed camera at z=60): its star size is
+// a framing choice, deliberately DECOUPLED from world/scale.ts STAR_RADIUS so live
+// scene rebalances can't silently break this composition.
+const BASE_STAR_R = 10; // wu — preloader-local framing constant
+const GIANT_SCALE = 3.4; // ×BASE_STAR_R = 34 wu → fills the frame at z=60
+const NEUTRON_SCALE = 0.1; // ×BASE_STAR_R = 1 wu → tiny blinding dot
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -83,8 +86,8 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
     const ringMat = createShockwaveMaterial();
     const flashMat = createFlashMaterial();
     const neutronMat = createStarSurfaceMaterial(); // reuse: blue-white #AFE3FF surface
-    const starGeo = new THREE.SphereGeometry(STAR_RADIUS, 96, 96);
-    const neutronGeo = new THREE.SphereGeometry(STAR_RADIUS, 48, 48);
+    const starGeo = new THREE.SphereGeometry(BASE_STAR_R, 96, 96);
+    const neutronGeo = new THREE.SphereGeometry(BASE_STAR_R, 48, 48);
     const ringGeo = new THREE.RingGeometry(0.8, 1.0, 128); // unit ring; scaled live
     const flashGeo = new THREE.PlaneGeometry(400, 400);
     const count = QUALITY[tier].collapseParticles;

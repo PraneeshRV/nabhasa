@@ -65,7 +65,7 @@ describe('frameWaypoints — waypoints match their source positions exactly', ()
     expect(pts[pts.length - 1].distanceTo(src.spawn)).toBe(0);
   });
 
-  it('the star-reveal start sits STAR_START_OFFSET from the star, never at it (no r=10 clip)', () => {
+  it('the star-reveal start sits STAR_START_OFFSET from the star, never at it (no r=30 clip)', () => {
     const src = synthSources();
     const start = frameWaypoints(src).start;
     expect(start.distanceTo(src.star)).toBeCloseTo(STAR_START_OFFSET, 6);

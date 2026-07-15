@@ -18,7 +18,7 @@ import type { Tier } from '../core/tiers';
 
 // Contract canon (docs/a2-fantasy-plan.md REACH_SYSTEM order: Brace=0, Praesidium=1, …).
 const PRAESIDIUM_INDEX = 1;
-const PRAESIDIUM_RADIUS = 5.0; // wu, contract
+const PRAESIDIUM_RADIUS = 15.0; // wu, contract (mirrors planets.ts REACH_SYSTEM[1].radiusWu)
 const AURORA_SHELL_R = PRAESIDIUM_RADIUS * 1.1; // high-atmosphere curtain, just above the surface
 
 export function Aurora({ tier }: { tier: Tier }) {

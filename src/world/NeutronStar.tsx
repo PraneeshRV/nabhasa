@@ -1,4 +1,4 @@
-// Neutron star — spec Task 5. Sphere r=10 at origin, blue-white TSL surface,
+// Neutron star — spec Task 5. Sphere r=STAR_RADIUS at origin, blue-white TSL surface,
 // spinning about +Y tilted 15° (magnetic/beam axis obliquity, Task 10). The star
 // is the SOLE key light in the system (photographic discipline: one key, one
 // rim, ambient floor — set per region). Spin is on the mesh transform, not in
