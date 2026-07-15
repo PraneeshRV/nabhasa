@@ -17,8 +17,8 @@ const FOV_MAX = 75; // spec
 const SPEED_REF = 120; // wu/s at which FOV reaches max — feel knob
 // Offsets rescaled with the craft shrink (watch-gate 2026-07-15): keep the same
 // craft-lengths-behind framing (~6 lengths back, ~1.7 up) at the new 1.5 wu hull.
-export const OFFSET_BACK = 9; // craft pos − forward·9
-export const OFFSET_UP = 2.5; // + up·2.5
+export const OFFSET_BACK = 6; // craft pos − forward·6 (rescaled with the ×⅔ craft shrink)
+export const OFFSET_UP = 1.7; // + up·1.7
 
 const _desired = new Vector3();
 const _up = new Vector3(0, 1, 0);

@@ -44,10 +44,10 @@ export const PLANET_GM_SCALE = 1; // 1.0 = true ratio-scale perturbation
 // [Brace, Praesidium, Aletheia, Kiln, Vesper, Riven, Corona, Threshold];
 // orbit shells 130/260/400/560/1250/1600/2050/2700 wu (inside PLAY_RADIUS,
 // outside KILL_RADIUS) — mirror planets.ts REACH_SYSTEM. Soft radii are the
-// worlds' radiusWu except Threshold (a station, not a sphere): ~18 keeps its
+// worlds' radiusWu except Threshold (a station, not a sphere): ~36 keeps its
 // collider clamped off the craft (A1 kinematic-collider close-out pattern).
 export const PLANET_MASS_EARTHS = [0.4, 1.0, 0.8, 1.2, 1.1, 0.6, 95, 0.1] as const;
-export const PLANET_RADII_WU = [9.0, 15.0, 13.8, 17.4, 18.6, 16.2, 27.0, 18.0] as const;
+export const PLANET_RADII_WU = [18.0, 30.0, 27.6, 34.8, 37.2, 32.4, 54.0, 36.0] as const;
 export const PLANET_GMS: readonly number[] = PLANET_MASS_EARTHS.map(
   (m) => (GM_SIM * PLANET_GM_SCALE * m) / M_STAR_EARTH,
 );

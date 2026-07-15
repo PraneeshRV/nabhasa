@@ -56,8 +56,13 @@ export const FUEL_DRAIN_RATE = 0.01;
 
 // Beacon proximity radii (wu). Offer zone loose (beacons have a light pillar,
 // visible from afar); delivery tight (must actually arrive).
-export const OFFER_RADIUS = 40;
-export const DELIVER_RADIUS = 25;
+// Scaled with the ×6 world rebalance (2026-07-15): DELIVER must stay comfortably
+// LARGER than the biggest content-world radius (Vesper 37.2 wu) — beacons sit on
+// the orbit shell, so when the orbiting body sweeps past its beacon the delivery
+// ring has to poke out beyond the planet surface (plus collider margin) or the
+// mission soft-locks for the duration of the pass.
+export const OFFER_RADIUS = 60;
+export const DELIVER_RADIUS = 50;
 
 // ---- world-anchored waypoints (Amendment A2) --------------------------------
 // Beacons sit ON the Reach worlds' orbit shells at fixed azimuths — Kindled

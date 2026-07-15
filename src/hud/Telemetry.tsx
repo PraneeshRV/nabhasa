@@ -16,11 +16,12 @@ import { useHudStore, DISPLAY_RATE } from './hudStore';
 import { useApproachStore } from './approachStore';
 import { hudBreathState, dilationEmphasis, TRAN_THRESHOLD } from './breath';
 import { input, type InputSource } from '../flight/input';
+import { useFlightModeStore } from '../flight/flightMode';
 import { PULSAR } from './physics-data';
 import './hud.css';
 
 const HINTS: Record<InputSource, string> = {
-  kbd: 'WASD THRUST · ↑↓ PITCH · ←→ YAW · Q/E ROLL · SHIFT BOOST · SPACE BRAKE · C ACCEPT',
+  kbd: 'WASD THRUST · ↑↓ PITCH · ←→ YAW · Q/E ROLL · SHIFT BOOST · SPACE BRAKE · C ACCEPT · V MODE',
   pad: 'STICKS MOVE/LOOK · RB BOOST · LB BRAKE · A ACCEPT',
   touch: 'LEFT HALF THRUST/STRAFE · RIGHT HALF LOOK',
 };
@@ -34,6 +35,7 @@ const pct = (f: number) => `${Math.round((f < 0 ? 0 : f > 1 ? 1 : f) * 100)}`;
 
 export function Telemetry() {
   const s = useHudStore();
+  const mode = useFlightModeStore((f) => f.mode); // explorer/pilot (re-renders on toggle only)
   const approaching = useApproachStore((a) => a.open); // approach target active (5 Hz store)
   const transit = s.beamTransit > TRAN_THRESHOLD;
   // W5: HUD breathing (rest/approach/danger) + time-dilation emphasis drive two
@@ -73,6 +75,23 @@ export function Telemetry() {
         <div className="hud-row">
           <span className="hud-label">Region</span>
           <span className="hud-val">{s.region.toUpperCase()}</span>
+        </div>
+        {/* Flight mode (explorer assist / pilot sim). Clickable for mouse users;
+            V is the key toggle (input.ts). pointerEvents: hud-root is inert by
+            default, so opt this row back in. */}
+        <div
+          className="hud-row"
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+          onClick={() => useFlightModeStore.getState().toggle()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') useFlightModeStore.getState().toggle();
+          }}
+          title="Toggle flight mode (V) — EXPLORER: assisted, ship goes where you point. PILOT: full orbital physics."
+        >
+          <span className="hud-label">Flight</span>
+          <span className="hud-val">{mode === 'explorer' ? 'EXPLORER · ASSIST' : 'PILOT · SIM'}</span>
         </div>
         <div className="hud-row">
           <span className="hud-label">g_surface</span>

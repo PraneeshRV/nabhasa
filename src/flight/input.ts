@@ -8,6 +8,8 @@
 // interact in the spec — implemented verbatim: holding E drives roll=+1 AND
 // interact=true. (Flagged for Praneesh; likely one of the two should move.)
 
+import { useFlightModeStore } from './flightMode';
+
 export type InputSource = 'kbd' | 'pad' | 'touch';
 
 export const input = {
@@ -78,6 +80,9 @@ export function attachInput(el: HTMLElement): () => void {
   const onKeyDown = (e: KeyboardEvent) => {
     pressed.add(e.code);
     recompute();
+    // V toggles flight mode (explorer assist ⇄ pilot sim) on the rising edge —
+    // an event, not a held axis, so it lives here rather than in the pressed-set.
+    if (e.code === 'KeyV' && !e.repeat) useFlightModeStore.getState().toggle();
     // finding 5: Space/Arrows scroll the page AND, with a focused button
     // (MissionResult focuses "Continue flight"), Space click-activates it —
     // dismissing the result card mid-read when the player brakes. preventDefault

@@ -7,7 +7,7 @@
 // Waypoints, in choreographic order: star-reveal start → Reach glide world → Dyson
 // swarm → spawn. World/swarm/spawn waypoints are the EXACT source positions (no
 // framing offset) so "waypoints match source positions" is honest; only the star
-// start is offset radially so the reveal camera clears the r=30 star surface. The
+// start is offset radially so the reveal camera clears the r=50 star surface. The
 // camera looks at the origin throughout (the star/system center) — the flight spawn
 // faces the star (Craft respawn idiom), so a constant origin look-at hands off to
 // free flight without a re-orientation pop.
@@ -24,16 +24,16 @@ import { CatmullRomCurve3, Vector3 } from 'three';
 // tests can pin the underlying craft contract.
 export const SPAWN_POS: readonly [number, number, number] = [600, 80, 0];
 
-// Star center (world/scale.ts: "star at origin", r=30). Readonly Vector3 — the rail
+// Star center (world/scale.ts: "star at origin", r=50). Readonly Vector3 — the rail
 // reads it, never moves it.
 export const STAR_ORIGIN: Vector3 = new Vector3(0, 0, 0);
 
 // How far the reveal start sits from the star, along the star→glideWorld ray. A
-// scalar offset (not a coordinate): large enough to clear the r=30 surface with
+// scalar offset (not a coordinate): large enough to clear the r=50 surface with
 // room for the lensing reveal, small enough that the star still dominates the
-// opening frame (5× the radius vs the original 6× — tightened a touch so the
-// start stays well clear of Praesidium's 260 wu glide orbit).
-export const STAR_START_OFFSET = 150;
+// opening frame (4× the radius vs the original 6× — tightened so the start
+// stays clear of Praesidium's 260 wu glide orbit).
+export const STAR_START_OFFSET = 200;
 
 // Source positions the rail is built from. `worlds` is the live singleton
 // (getPlanetPositions()); the others are constants. All passed in — rail.ts

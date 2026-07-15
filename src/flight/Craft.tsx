@@ -33,6 +33,7 @@ import { gravityAccelWithPlanets, PLANET_GMS, PLANET_RADII_WU } from './gravity'
 import { FIXED_DT, KILL_RADIUS, PLAY_RADIUS } from '../world/scale';
 import { regionAt, useRegionStore } from '../world/regions';
 import { craftState } from './craftState'; // leaf — same singleton, no Rapier pull
+import { useFlightModeStore } from './flightMode'; // explorer/pilot toggle (pure leaf)
 import { getPlanetPositions } from '../world/LichPlanets'; // leaf singleton — planet perturbation (A1)
 import { useCourierStore, fuelFraction, missionById } from '../game/courier'; // pure FSM (no Rapier/three) — spec Task 12 wiring
 
@@ -41,15 +42,20 @@ const THRUST_ACCEL = 40; // wu/s² max linear (spec); boost multiplies by BOOST_
 const BOOST_MUL = 2.5; // spec
 const ATTITUDE_TORQUE = 8; // rad/s² max angular accel — NOT in spec; feel knob
 const BRAKE_DAMP = 0.3; // flight-assist retro-damping rate (1/s) when braking (spec value)
+// Explorer mode (flightMode.ts, DEFAULT): gravity off the craft + this always-on
+// damping — terminal speed = THRUST_ACCEL/EXPLORER_DAMP ≈ 44 wu/s (boost ~111),
+// coast-to-stop in a few seconds. Pilot mode keeps the original sim untouched.
+const EXPLORER_DAMP = 0.9; // 1/s
 const BOUNDARY_K = 6; // inward spring stiffness (wu/s² per wu beyond PLAY_RADIUS)
 const RESPAWN_POS: [number, number, number] = [600, 80, 0];
 
 // BallCollider radius (JSX arg below). Drives the solid-sphere moment of inertia
 // I = (2/5)·m·r² — addTorque wants torque = I·α, not m·α (finding 3).
 // Watch-gate feedback 2026-07-15: craft was planet-sized (cone 5 wu vs planet
-// r 3-9 wu). Shrunk ~3.5x so worlds read as WORLDS; all world-scale numbers
-// (orbits, GMs, rail, approach radii) intentionally untouched.
-const BALL_RADIUS = 0.6;
+// r 3-9 wu). Shrunk ~3.5x so worlds read as WORLDS; re-fly round 2 shrunk it a
+// further ×⅔ (cone 1.0×0.3) alongside the ×2 body scale-up — combined the craft
+// is now ~1/80 of a mid world's diameter. Chase offsets rescaled in cameraRig.
+const BALL_RADIUS = 0.4;
 const INERTIA_OVER_MASS = (2 / 5) * BALL_RADIUS * BALL_RADIUS; // I/m, given r
 
 // Region streaming cadence: push regionAt(pos) every N physics steps ≈ 10Hz at
@@ -136,8 +142,13 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
     _up.copy(UP_LOCAL).applyQuaternion(_quat);
     craftState.forward.copy(_fwd);
 
-    // accumulate acceleration (gravity [star + planet perturbation, A1] + thrust)
-    gravityAccelWithPlanets(pos, _grav, getPlanetPositions(), PLANET_GMS, PLANET_RADII_WU);
+    // accumulate acceleration. Pilot mode: gravity (star + planet perturbation,
+    // A1) + thrust. Explorer mode (default): thrust only — no gravity on the
+    // craft; the worlds still orbit, the star still kills, but the ship goes
+    // where the player points it (re-fly gate feedback: real physics vs UX).
+    const explorer = useFlightModeStore.getState().mode === 'explorer';
+    if (explorer) _grav.set(0, 0, 0);
+    else gravityAccelWithPlanets(pos, _grav, getPlanetPositions(), PLANET_GMS, PLANET_RADII_WU);
     const ta = THRUST_ACCEL * (input.boost ? BOOST_MUL : 1);
     _force.set(0, 0, 0)
       .addScaledVector(_fwd, input.thrust * ta)
@@ -149,6 +160,10 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
     const lv = b.linvel();
     const vel = craftState.vel.set(lv.x, lv.y, lv.z);
     craftState.speed = vel.length();
+
+    // Explorer: always-on damping — caps speed at THRUST_ACCEL/EXPLORER_DAMP and
+    // coasts the craft to a stop when input goes idle (predictable, no drift).
+    if (explorer) _force.addScaledVector(vel, -EXPLORER_DAMP);
 
     // flight-assist retro-damping when braking: accel = -BRAKE_DAMP · v
     if (input.brake) _force.addScaledVector(vel, -BRAKE_DAMP);
@@ -224,7 +239,7 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
       <BallCollider args={[BALL_RADIUS]} />
       {/* placeholder hull (hero glTF lands Task 13); nose toward local -Z */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.45, 1.5, 12]} />
+        <coneGeometry args={[0.3, 1.0, 12]} />
         <meshStandardMaterial color="#cfe4ff" emissive="#3a78c8" emissiveIntensity={0.4} metalness={0.6} roughness={0.4} />
       </mesh>
       <Thruster />
@@ -311,8 +326,8 @@ function Thruster() {
     (m.material as MeshBasicMaterial).opacity = t * 0.9;
   });
   return (
-    <mesh ref={ref} position={[0, 0, 0.8]} rotation={[Math.PI / 2, 0, 0]}>
-      <coneGeometry args={[0.25, 0.9, 8]} />
+    <mesh ref={ref} position={[0, 0, 0.55]} rotation={[Math.PI / 2, 0, 0]}>
+      <coneGeometry args={[0.17, 0.6, 8]} />
       <meshBasicMaterial color="#9fd0ff" transparent opacity={0} depthWrite={false} />
     </mesh>
   );

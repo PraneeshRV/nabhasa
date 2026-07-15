@@ -19,9 +19,9 @@ describe('gravityAccel', () => {
 
   it('clamps the singularity at r=1 → magnitude uses KILL_RADIUS²', () => {
     const a = gravityAccel(new Vector3(1, 0, 0), new Vector3());
-    // |a| = GM / KILL² = 270000 / 2025 ≈ 133.3
+    // |a| = GM / KILL² = 270000 / 4900 ≈ 55.1
     expect(a.length()).toBeCloseTo(GM_SIM / (KILL_RADIUS * KILL_RADIUS), 6);
-    expect(a.length()).toBeCloseTo(133.3, 0);
+    expect(a.length()).toBeCloseTo(55.1, 0);
   });
 
   it('returns zero at the exact origin (guard, not a gameplay path)', () => {
@@ -182,7 +182,7 @@ describe('gravityAccelWithPlanets (Amendment A2 — 8-body Reach system)', () =>
   };
 
   it('near Kiln (560), Kiln dominates every other world perturbation term', () => {
-    // Craft just outside Kiln's surface on the starward side (dist 18.4 > soft 17.4).
+    // Craft just outside Kiln's surface on the starward side (dist 35.8 > soft 34.8).
     const craft = new Vector3(orbits[KILN] - PLANET_RADII_WU[KILN] - 1, 0, 0);
     const kilnTerm = termOf(craft, KILN);
     for (let k = 0; k < orbits.length; k++) {
@@ -195,10 +195,10 @@ describe('gravityAccelWithPlanets (Amendment A2 — 8-body Reach system)', () =>
     const craft = new Vector3(orbits[KILN] - PLANET_RADII_WU[KILN] - 1, 0, 0);
     const kilnTerm = termOf(craft, KILN);
     const coronaTerm = termOf(craft, CORONA);
-    // Expected ratio ≈ (95/1.2)·(18.4/1508)² ≈ 1.2% — the ×3 body scale moved the
-    // "just outside the surface" probe from 6.8 → 18.4 wu, shrinking Kiln's own
-    // term ×7.3 while Corona's barely moved. Still ≪ dominant; pin at <2%.
-    expect(coronaTerm).toBeLessThan(kilnTerm * 0.02); // <2% of nearest-world term
+    // Expected ratio ≈ (95/1.2)·(35.8/1526)² ≈ 4.4% — each body scale-up moves the
+    // "just outside the surface" probe outward, shrinking Kiln's own term while
+    // Corona's barely moves. Still ≪ dominant; pin at <5%.
+    expect(coronaTerm).toBeLessThan(kilnTerm * 0.05); // <5% of nearest-world term
   });
 });
 
@@ -221,13 +221,13 @@ describe('gravity.ts ↔ planets.ts cross-copy consistency (8-body Reach arrays 
     for (let i = 0; i < 7; i++) {
       expect(PLANET_RADII_WU[i]).toBe(REACH_SYSTEM[i].radiusWu);
     }
-    // Threshold (#8) is a station, not a sphere. Its gravity soft radius (18.0)
-    // is INTENTIONALLY larger than its spec radiusWu (9.0 structure half-extent
+    // Threshold (#8) is a station, not a sphere. Its gravity soft radius (36.0)
+    // is INTENTIONALLY larger than its spec radiusWu (18.0 structure half-extent
     // proxy): the bigger soft radius keeps the kinematic station collider
     // clamped clear of the craft (A1 close-out pattern; gravity.ts comment lines
     // 46-48). This is the intended relation, NOT a copy-drift mismatch.
-    expect(REACH_SYSTEM[7].radiusWu).toBe(9.0);
-    expect(PLANET_RADII_WU[7]).toBe(18.0);
+    expect(REACH_SYSTEM[7].radiusWu).toBe(18.0);
+    expect(PLANET_RADII_WU[7]).toBe(36.0);
   });
 
   it('PLANET_GMS has one GM per Reach world (len 8)', () => {

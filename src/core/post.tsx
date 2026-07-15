@@ -71,7 +71,7 @@ const REGION_BLOOM: Record<string, { strength: number; radius: number }> = {
 const VIGNETTE_BASE = 0.1; // faint, static (≤0.15)
 const VIGNETTE_NEAR = 0.15; // deepens slightly near-star with the exposure drop
 const CA_MAX = 0.004; // uv-offset at full g-load/boost (subtle)
-const CA_RAMP_START = 110; // wu: CA begins ramping inward toward kill radius (45) — ~2.4× kill, same feel ratio as the old 60/25
+const CA_RAMP_START = 170; // wu: CA begins ramping inward toward kill radius (70) — ~2.4× kill, same feel ratio as the original 60/25
 const CA_TAU = 0.1; // s: slew toward target — never a hard pop (photosensitivity)
 const GRAIN_AMP = 0.03; // luminance-only amplitude, webgpu-high only
 
