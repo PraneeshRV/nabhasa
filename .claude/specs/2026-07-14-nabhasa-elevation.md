@@ -107,3 +107,10 @@ pasted into wave log. Two critics (proof + adversarial) on W2 and W4.
 - v1 2026-07-14 — initial, decisions from elevation interview (this session).
 - v1.1 2026-07-14 — Higgsfield scrapped (no free tier). Gen tools → Pollinations MCP + Gemini Omni/Flow via Praneesh.
 - W0 GATE PASSED 2026-07-14 — Praneesh sign-off: art-direction v2+v2.1, moodboard ×12, candidates. Shipped interim: skybox-base.avif, nebula-wisp/dense.avif (ledgered). Omni/Flow packet outputs (docs/prompt-packets-w0.md) still pending Praneesh runs — finals swap in when delivered. W1 unblocked.
+- W6/scale/assets GATES PASSED 2026-07-15 — Praneesh verdict "it's good": plates
+  (DETAIL_STRENGTH 0.85) + Corona ring plate + collapse-echo video + world scale
+  ×6 + explorer flight mode (default) all approved. w6b-plates merged → master
+  (9ca4d3b, fast-forward). Master gates: tsc clean, vitest 176/176, build ✓.
+  Payload: dist 7.8M total (≤8MB ✓), first-paint JS ~90kB gz (<500kB ✓).
+  Remaining: W7 external gates only — deploy (repo has NO git remote; hosting +
+  DNS nabhasa.praneeshrv.me = Praneesh infra) + Awwwards submit.
