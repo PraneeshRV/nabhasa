@@ -1,0 +1,28 @@
+ROLE: builder(visual/shaders) — nabhasa A2 slice P5a. Headless. Bash DISABLED: never run tsc/build/git — conductor runs gates. Read/Edit/Write only.
+
+WORKTREE: /home/praneesh/Praneesh/Portfolio/nabhasa-p5a (branch a2-p5a). Paths relative to it.
+
+⚠ PARTIAL WORK EXISTS. A previous agent already edited src/core/quality.ts and src/shaders/nebula.ts and created src/shaders/aurora.ts (~68 lines) and src/world/Aurora.tsx (~52 lines). READ ALL FOUR CURRENT FILES FIRST and CONTINUE/FINISH that work — do not restart from scratch, do not revert their edits unless they violate the invariants below.
+
+READ FIRST:
+1. The four files above, current state, fully.
+2. docs/a2-fantasy-plan.md — section "P5 — Eye-candy", the P5a parts (nebula enrich + aurora) and the tier-behavior table. JumpGate is NOT yours.
+3. docs/art-direction.md — hard bans (NO purple/teal space-nebula gradients, one hot accent, bloom >1 emissive-only) + per-biome palettes.
+4. docs/lore.md — Praesidium "a green aurora curls over its pole"; Vesper optional fainter band.
+5. src/shaders/ neighbors + src/core/quality.ts for the QUALITY tier idiom and TSL import style ('three/webgpu' / 'three/tsl' — never bare 'three' for shader classes).
+
+SCOPE (entire write set):
+- src/shaders/nebula.ts — richer backplate: more octaves / domain warp, still dim near --void with star-hot dust only; webgl2 must still read; octave count tier-scaled as it already is.
+- src/shaders/aurora.ts — TSL ribbon: latitude-band curl, additive, green, sub-star intensity; emissive may exceed 1 (aurora is a sanctioned bloom surface) but keep it dim vs the star.
+- src/world/Aurora.tsx — component rendering aurora ribbons over a world's pole; takes world position source as prop or reads a position index — DO NOT edit LichPlanets.tsx or App.tsx to mount it (mount serializes after P1.2, conductor's job). Export a clean <Aurora/> that P5b/conductor can mount with one line. Bands from QUALITY: webgpu-high=3, webgpu-low=1, webgl2=1 lower-res, static=render null.
+- src/core/quality.ts — keep/extend the already-started tier keys for aurora (and nebula if started); additive keys only, do NOT change existing tier values consumed elsewhere.
+
+NON-SCOPE: JumpGate.tsx (P5b), LichPlanets.tsx, App.tsx, star surface, lensing, beams, swarm, audio, planets.ts, any test. No new deps.
+
+INVARIANT: TSL only; art-direction bans hold; static tier renders nothing; no setState in useFrame; dispose on unmount; additive layers never compete with the star.
+
+EXPECTED FAILURE MODE: the partial aurora.ts/Aurora.tsx may be mid-thought or inconsistent with quality.ts keys — reconcile them; if a partial edit violates an invariant (e.g. purple gradient, bare 'three' import), fix it and note in .a2-done.
+
+ABORT: needed change outside write set → Write .a2-blocked at worktree root with reason, stop.
+
+DONE: Write .a2-done at worktree root: state of each of the 4 files (continued vs rewritten), quality keys added, how Aurora mounts (exact one-line JSX the conductor should add after P1.2 merge), residuals. Do not claim it compiles.

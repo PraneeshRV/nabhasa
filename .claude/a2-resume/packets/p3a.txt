@@ -1,0 +1,29 @@
+ROLE: builder(content) — nabhasa A2 slice P3a. Headless. Bash DISABLED. Read/Write only. Data-only slice: you create ONE json file, no code.
+
+WORKTREE: /home/praneesh/Praneesh/Portfolio/nabhasa-p3a (branch a2-p3a). Paths relative to it.
+
+READ FIRST:
+1. docs/a2-fantasy-plan.md — section "P3 — Content docking": the portfolio.json shape block and the RECON note 1 (copy is a Praneesh input gate — structure + best-effort real copy, he reviews later).
+2. docs/lore.md — the per-world myth lines (each section must echo its world's myth line verbatim).
+3. Vault (extra allowed dir): /home/praneesh/Praneesh/2nd-brain/Wiki/About Me.md — the professional profile. Use it as the SOURCE for real copy. If other obviously relevant vault pages are referenced from it (projects, experience), you may Read them too; vault is READ-ONLY for you.
+
+SCOPE (entire write set): NEW file src/content/portfolio.json. Nothing else. Valid strict JSON (no comments, no trailing commas).
+
+SHAPE (binding, from the plan):
+Top level = object keyed by slot: About, Research, Projects, Experience, Contact.
+Each value: { "slot": <same key>, "world": <bound world>, "headline": string, "myth": string, "blocks": [{ "heading": string, "body": string }, ...] }
+World binding (canon): About→Praesidium, Research→Aletheia, Projects→Kiln, Experience→Vesper, Contact→Threshold.
+
+CONTENT RULES:
+- About: real copy synthesized from Wiki/About Me.md — tight, first person, 2-4 blocks. This is the "one real section" the plan requires; do the others as well as the vault allows.
+- Research / Projects / Experience: fill from whatever the About page + linked vault pages support; where the vault is silent, write clearly-marked placeholder body text ("[Praneesh: fill — ...]") but real headings and structure. Never invent achievements, employers, dates, or credentials not found in the vault.
+- Contact: short call-to-action + placeholder for links/email ("[Praneesh: confirm contact links]") — do NOT copy an email address or phone number into the repo unless About Me.md explicitly presents it as public portfolio contact info.
+- headline: Space Grotesk display copy — short, lore-toned but professional.
+- myth: the exact myth line for that world from docs/lore.md.
+- Keep it tight: this renders in an in-game panel, not a resume dump. ≤4 blocks per section, bodies ≤80 words each.
+
+NON-SCOPE: any .ts/.tsx file, any existing file, the vault (read-only), panel code (P3b, not yours).
+
+ABORT: if Wiki/About Me.md is missing/unreadable → Write .a2-blocked at worktree root saying so, stop.
+
+DONE: Write .a2-done at worktree root: confirm file created, list which sections carry real copy vs placeholders, note any vault pages used.

@@ -1,0 +1,23 @@
+ROLE: builder(gameplay+UI strings) — nabhasa A2 slice P4. Headless. Bash DISABLED: never run tests/git — conductor runs gates. Read/Edit/Write only.
+
+WORKTREE: /home/praneesh/Praneesh/Portfolio/nabhasa-p4 (branch a2-p4). Paths relative to it.
+
+READ FIRST:
+1. docs/a2-fantasy-plan.md — section "P4 — Lore-wired missions + HUD strings": the 5-mission table (ids, names, from→to, par, budget) is BINDING.
+2. docs/lore.md — mission flavor + world identities.
+3. src/game/courier.ts — current FSM, tick, reduce, scoring, shell() helper, OFFER_RADIUS, MISSIONS shape.
+4. tests/courier.test.ts and tests/score.test.ts — current fixtures.
+5. src/hud/Telemetry.tsx and src/hud/physics-data.ts — PULSAR usage (physics-data.ts is read-only for you).
+
+SCOPE (entire write set):
+- src/game/courier.ts — rewrite MISSIONS only: 5 missions per the plan table (m1-emberlight spawn→Praesidium 260, m2-archive Praesidium→Aletheia 400, m3-forge Aletheia→Kiln 560, m4-ruins Kiln→Vesper 1250, m5-gate Vesper→Threshold 2700; pars 50/80/90/130/160; budgets 0.7/0.55/0.4/0.45/0.5). Waypoints via the existing shell(r,az,y) helper at the contract orbit radii; chain preserved (each mission's `to` = next `from`); m4 azimuth chosen so the route passes through the Dyson swarm region (swarm centered (900,0,0) r=250 — pick az so the Kiln→Vesper leg threads near it, as the current signature mission does). FSM, tick, reduce, scoring, fuel rules, OFFER_RADIUS: VERBATIM — untouched.
+- tests/courier.test.ts — update mission-id and waypoint fixtures to the new MISSIONS. Do not weaken assertions; same coverage, new data.
+- src/hud/Telemetry.tsx — surgical string changes only: the TL pulsar line becomes lore-labelled `THE EMBER · {PULSAR.name}` (real designation stays); mission line already reads the store so renamed missions flow through. NO formula changes, NO layout changes, NO physics-data.ts edits.
+
+NON-SCOPE: physics-data.ts, planets.ts, LichPlanets.tsx, gravity.ts, shaders, App.tsx, score.ts logic, any other test. If tests/score.test.ts references mission fixtures that break from the rename, updating those fixture references IS in scope (data only, not scoring logic) — note it in .a2-done.
+
+INVARIANT: FSM/scoring/fuel logic byte-identical; missions never lock free flight; chain intact; HUD keeps real physics numbers.
+
+ABORT: any needed change outside write set → Write .a2-blocked at worktree root with reason, stop.
+
+DONE: Write .a2-done at worktree root: files changed, mission table implemented, fixture updates, residuals. Do not claim tests pass.

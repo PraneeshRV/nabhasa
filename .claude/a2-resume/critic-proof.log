@@ -1,0 +1,40 @@
+⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors
+Verified at HEAD. RESPAWN_POS=[600,80,0] (Craft.tsx:45), courier.test hardcodes same — no cross-import. No test imports nearestContentWorld/approachStore/ApproachPanel/JumpGate/Aurora/getPlanetPositions. gravity.test imports PLANET_GMS but NOT REACH_SYSTEM. planets.test pins only Brace orbit=130; rest monotonic+swarm-gap only.
+
+## GATED
+
+- **8-world canon order** — caught by `planets.test.ts:17-28` (sabotage: swap Praesidium↔Aletheia array entries → NAMES array order changes)
+- **biome↔world binding** — `planets.test.ts:30-44` (sabotage: give Praesidium 'glass')
+- **exactly 5 content slots + slot↔world binding** — `planets.test.ts:79-90` (sabotage: add slot to Brace, or swap About/Research)
+- **Brace base 130wu/50s exact** — `planets.test.ts:57-60` (sabotage: orbitWu≠130)
+- **swarm gap 650–1150 empty** — `planets.test.ts:109-114` (sabotage: Vesper orbit 900)
+- **<PLAY_RADIUS, positivity, palette hex-pair** — `planets.test.ts:100-149`
+- **strict monotonic orbit+period** — `planets.test.ts:70-75` (sabotage: any adjacent orbit inversion)
+- **courier chain to==next.from** — `courier.test.ts:181-183` (sabotage: break m2.from≠m1.to) — GENERIC loop, survives any data
+- **m1.from=spawn + finale name** — `courier.test.ts:180,184` (sabotage: move spawn, rename m5) — PINNED
+- **FSM transitions/scoring/fuel/drain** — `courier.test.ts:20-148` (sabotage: any reducer rule, score formula, drain clamp)
+- **star gravity GM/r² + integrator sign + orbit stability** — `gravity.test.ts:9-74` (sabotage: GM_SIM wrong, semi-implicit→explicit)
+- **planet perturbation direction + A1 <5% star at shells** — `gravity.test.ts:87-128` (sabotage: planet accel sign flip; inner mass bloated)
+- **Corona-negligible vs Kiln** — `gravity.test.ts:193-198` (sabotage: index-3 mass zeroed OR index-6 mass bloated >~500)
+
+## WEAK
+
+- **exact orbit radii 260/400/560/1250/1600/2050/2700** — passes under Praesidium orbitWu 270 (vs 260); only Brace pinned, rest checked monotonic+swarm-gap+<3000; tighten: `byName('Praesidium').orbitWu).toBe(260)` ×8
+- **Kepler 30% tol on near-exact inner four** — passes under Aletheia period 200 (vs 269, 25% off); tighten: 5% tol for inner four (comment claims near-exact), keep 30% only for outer three tuned worlds
+- **mass values pinned** — passes under Corona mass 9.5 (vs 95); `planets.test.ts:124` only checks `>0`, gravity Corona-test tolerates up to ~500; tighten: `byName('Corona').massEarthsTuned).toBe(95)` per world
+- **gravity 8-body mass ORDER** — passes under swap mass[5]↔mass[7] (Riven/Threshold, both far); 8-body block is proximity-dominated — only catches index-3-too-small / index-6-too-big; tighten: `expect(PLANET_MASS_EARTHS).toEqual([0.4,1.0,0.8,1.2,1.1,0.6,95,0.1])`
+- **three duplicated contract copies agree** (planets.ts / gravity.ts arrays / gravity.test local `orbits`) — passes under change planets.ts mass, forget gravity.ts; no test imports both; tighten: one test `PLANET_MASS_EARTHS[i]===REACH_SYSTEM[i].massEarthsTuned && PLANET_RADII_WU[i]===REACH_SYSTEM[i].radiusWu` for all 8
+- **courier waypoint radii vs contract** — passes under `W_PRAESIDIUM=shell(300,...)`; chain test is generic, no radius assertion; tighten: `Math.hypot(...W_PRAESIDIUM)≈260` ×5 or cross-check vs REACH_SYSTEM orbitWu
+- **m1.from↔Craft RESPAWN_POS cross-check** — passes under Craft.tsx RESPAWN_POS changed to [600,80,5]; courier.test hardcodes [600,80,0]; tighten: export RESPAWN_POS, assert `MISSIONS[0].from===RESPAWN_POS`
+
+## UNGATED
+
+- **nearestContentWorld math** — propose: `tests/lichplanets.test.ts` — `nearestContentWorld(Vec3(260,0,0)).name==='Praesidium'`; at origin returns null; nearest-of-two selection correct
+- **APPROACH_RADIUS trigger / approachStore open↔close** — propose: `tests/approachStore.test.ts` — extract the 60wu open / >60 close decision from `ApproachSampler` useFrame into a pure fn, assert open+slot set in-range, cleared out-range
+- **panel slot↔world↔section binding** — propose: `tests/approachPanel.test.ts` — for each Slot, `SECTIONS[slot].world` === the REACH_SYSTEM world whose `contentSlot===slot` (cross-checks portfolio.json vs planets.ts)
+- **Aurora/JumpGate tier gating** — propose: `tests/tierGating.test.ts` — `JumpGate({tier:'static'})`→null, fold-disc only webgpu-high/low; `Aurora({tier:'static'})`→null (extract tier→surfaces map or shallow-render)
+- **POSITIONS singleton correctness** — propose: `tests/lichplanets.test.ts` — `getPlanetPositions()` length 8; after frame at θ, `pos[i]≈[orbitWu·cosθ,0,-orbitWu·sinθ]`; matches REACH_SYSTEM orbitWu
+- **PLANET_GMS / PLANET_RADII_WU length 8** — propose: `tests/gravity.test.ts` — `expect(PLANET_GMS).toHaveLength(8)` + RADII (no length assert anywhere; 7-entry array indexes [6] fine)
+- **debris/antenna tier scalar (static→0)** — propose: `tests/lichplanets.test.ts` — `TIER_K.static===0` (minor; render-only)
+
+**PROOF VERDICT: ADEQUATE** — the three pure modules are well-gated for structure and gross errors (canon order, chain, FSM, star gravity, perturbation direction), but passing 100/100 does NOT prove the A2 rewrite is internally consistent: three duplicated contract copies (masses/radii/orbits across planets.ts·gravity.ts·courier.ts) have zero cross-checks, exact radii/masses aren't pinned, and the entire P3/P5 behavior layer (nearestContentWorld, approach trigger, panel binding, tier gating) has no tests at all — a silent drift between copies or a broken approach panel ships green.

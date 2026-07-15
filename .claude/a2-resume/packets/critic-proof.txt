@@ -1,0 +1,19 @@
+ROLE: proof critic (test-gate critic) — nabhasa A2. READ-ONLY: Bash/Edit/Write disabled. Your ENTIRE value is the verdict you print as your final message.
+
+QUESTION: do the A2 tests actually gate the A2 behavior — i.e. would they FAIL under plausibly-broken implementations? Tests passing (100/100, already verified) is meaningless if they can't fail.
+
+REPO: /home/praneesh/Praneesh/Portfolio/nabhasa (cwd). Diff context: /tmp/claude-1000/-home-praneesh-Praneesh-2nd-brain/f6084f9e-c682-4057-bf3d-1b2589d78610/scratchpad/a2-full.diff. Spec: docs/a2-fantasy-plan.md.
+
+EXAMINE (read the test files + the code they claim to gate):
+1. tests/planets.test.ts — does it pin the contract table (8 worlds, canon order, orbit radii 130/260/400/560/1250/1600/2050/2700, Kepler ratios, exactly 5 content slots on the right worlds)? Or would a scrambled REACH_SYSTEM still pass? Check tolerance choices (30% Kepler tol — too loose?).
+2. tests/gravity.test.ts new 8-body block — would it catch: masses array wrong order? Corona mass accidentally applied at inner orbit? radii/gms swapped? Off-by-one (7 vs 8 entries)?
+3. tests/courier.test.ts — would it catch: broken chain (to != next from)? wrong waypoint radii vs contract? missing mission? m1.from != spawn? Check whether assertions are generic (loop over MISSIONS — survives any data) vs pinned (specific ids/radii — actually gate the rewrite).
+4. UNGATED BEHAVIOR: list A2 behaviors with NO test at all (e.g. nearestContentWorld math, APPROACH_RADIUS trigger, approachStore state transitions, panel slot binding, Aurora/JumpGate tier gating). For each: one-line proposed test (file + assertion) — smallest useful, no framework bloat.
+
+METHOD: for each claim, name the concrete sabotage (e.g. "swap Praesidium/Aletheia orbits") and say which assertion catches it or that none does. Verify against ACTUAL current test code at HEAD, not the diff alone.
+
+OUTPUT FORMAT (final message only):
+  GATED: <behavior> — caught by <file:test> (sabotage: <X>)
+  WEAK: <behavior> — passes under <sabotage>; tighten: <how>
+  UNGATED: <behavior> — propose: <file + assertion, one line>
+End with verdict line: "PROOF VERDICT: STRONG|ADEQUATE|WEAK" + one sentence.

@@ -1,0 +1,16 @@
+⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors
+All line numbers verified against HEAD. Final findings:
+
+src/game/courier.ts:82 🔴 CRITICAL: finale Contact-panel CTA is unreachable. m5.to = W_THRESHOLD is a fixed snapshot beacon (shell() at az 0.3, +sin z), but the Contact panel opens only within APPROACH_RADIUS(60) of the LIVE Threshold (nearestContentWorld reads POSITIONS[7], written each frame at -sin z, orbiting period 3797s). At t=0 the live Threshold sits ~5400 wu from its beacon; the +sin/-sin mirror means they never coincide even if the orbit sweeps past az 0.3. Delivering m5 (courier.ts:127) lands you at the beacon, ~5400 wu from live Threshold → nearestContentWorld returns null there → no Contact panel. Done-bar item 5 / P4 "diegetic CTA" broken. Fix: open the Contact panel on the m5 'deliver' event (courier FSM), or make m5.to track Threshold's live position — don't gate the finale panel on live-position proximity.
+
+src/hud/approachStore.ts:55 🟠 MAJOR: ESC dismiss is non-sticky. ApproachPanel.tsx:43 sets {open:false,slot:null} on Escape, but the sampler re-evaluates at 5Hz and, while still within APPROACH_RADIUS, re-opens (approachStore.ts:60) within ≤200ms — no "dismissed" suppression. ESC (a documented dismiss) is dead until you also fly out of range. Fix: add a per-slot dismissed flag set on ESC, cleared only when the craft leaves APPROACH_RADIUS.
+
+src/world/LichPlanets.tsx:132 🟠 MAJOR: Kiln space-elevator tether detaches from its ring. Tether is parented inside SphereBody's spinRef (line 127, co-rotates with axial spin), but Ring is a non-spinning sibling (line 365). As Kiln spins (axialDayS 70s) the tether's ring-anchor sweeps away from the fixed ring and clips through it. Fix: parent Tether outside spinRef (sibling of Ring, so it stays fixed relative to the ring), or co-rotate the Ring with the spin.
+
+src/hud/approach.css:21 🟠 MAJOR: .approach-root has pointer-events:none and no pointer-events:auto is set on .approach-panel, so all panel content is non-interactive — copy unselectable, and the Contact CTA links (portfolio.json "Send word outward…email, GitHub, LinkedIn, CTFtime") will be unclickable once real. Fix: add pointer-events:auto on .approach-panel (root stays none so empty margins don't block flight input).
+
+src/flight/gravity.ts:50 🟡 MINOR: Threshold soft-collider radius is 6.0 (PLANET_RADII_WU[7]) but the visible ThresholdStructure max extent is ~3.8 (gate ring outer, LichPlanets.tsx:326). Craft (BallCollider r=2) stops ~2.2 wu short of the visible gate, bouncing off void. Fix: drop Threshold soft radius to ~3.8–4.0, or document the keep-out as intentional.
+
+src/world/LichPlanets.tsx:374 🟡 MINOR: comment claims detectTier is "cached, idempotent" but src/core/tiers.ts:18 has no cache — every call re-runs navigator.gpu.requestAdapter. LichPlanets re-probes a tier App already resolved (App.tsx useTier) and defaults to 'webgpu-high' (line 375) until async resolves → transient wrong TIER_K (full debris/antenna counts) on lower tiers, and JumpGate renders the webgpu-only fold disc on webgl2 for a few frames (spec: webgl2 = rim only). Fix: pass the resolved tier from App as a prop, drop the internal probe.
+
+6 findings

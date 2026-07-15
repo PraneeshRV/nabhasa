@@ -1,0 +1,36 @@
+ROLE: builder(visual) — nabhasa A2 slice P1.2. You work headless. Bash is DISABLED for you: do NOT try to run tsc/tests/git — the conductor runs all gates. You only Read/Edit/Write files.
+
+WORKTREE: /home/praneesh/Praneesh/Portfolio/nabhasa-p12 (branch a2-p12). All paths below relative to it.
+
+READ FIRST (in this order, before any edit):
+1. docs/a2-fantasy-plan.md — section "The Reach world contract" (the 8-world table) and section "P1 — Planet-system rework", especially the per-biome material notes and the P1.2 interface block. That plan is BINDING.
+2. docs/lore.md — the per-world "Looks" lines.
+3. docs/art-direction.md — "Per-biome palettes (A2)" section + hard bans.
+4. src/world/planets.ts — the committed REACH_SYSTEM contract (PlanetSpec, WorldProps, Biome, ContentSlot, createPlanetMaterial). Consume it; do not modify it.
+5. src/world/LichPlanets.tsx — current implementation (the leaf idiom you must extend, not reinvent).
+
+SCOPE (your entire write set):
+- src/world/LichPlanets.tsx — rewrite to render the 8 REACH_SYSTEM worlds instead of the 3 LICH_SYSTEM bodies.
+- tests/planets.test.ts — NEW: contract sanity tests (8 entries, canon order Brace→Praesidium→Aletheia→Kiln→Vesper→Riven→Corona→Threshold, Kepler ratio periodS ∝ orbitWu^1.5 within tolerance vs Brace base, content slots on exactly Praesidium/Aletheia/Kiln/Vesper/Threshold, radii/orbits positive). Pure data tests — import from src/world/planets.ts only, no three.js rendering in tests.
+
+NON-SCOPE (do not touch): src/world/planets.ts, src/flight/gravity.ts, src/game/courier.ts, src/hud/*, src/shaders/*, src/core/*, App.tsx, regions.ts, scale.ts, any other test file. Do NOT delete the LICH_SYSTEM export from planets.ts (not your file); just stop consuming it in LichPlanets.tsx. If some other file imports LICH_SYSTEM and would break, do NOT edit that file — record it in your final report and in .a2-done as a residual.
+
+WORK:
+- Render all 8 worlds from REACH_SYSTEM: sphere meshes with createPlanetMaterial(spec) for the 7 spherical biomes; Threshold ('station' biome) is NOT a sphere — dedicated structure: habitat torus + antenna farm (thin instanced spikes) + dark gate ring placeholder (plain geometry; the gate FX/distortion is P5b, NOT yours).
+- Per-world props from spec.props: moons (small instanced spheres orbiting the world), ring (ringGeometry with banded alpha, tilt), debris (instanced fragments belt for Riven + shepherd asteroids), tether (thin cylinder line from Kiln surface to its orbital ring), antennaFarm (Threshold).
+- Orbit + axial spin animation in useFrame per periodS/axialDayS; dt clamp ≤1/30; NO setState in useFrame; all live positions written in-place into the existing module-singleton Vector3[] (extend to length 8, same idiom as current file).
+- Keep export getPlanetPositions(): readonly THREE.Vector3[] — same shape, now length 8, index order = REACH_SYSTEM order.
+- Add export nearestContentWorld(pos: THREE.Vector3): { id: string; name: string; slot: string; dist: number } | null — nearest world that has a contentSlot, computed from the live positions array; null if none within a generous cutoff (use 2×APPROACH radius = 120 wu cutoff; define const APPROACH_RADIUS = 60 exported for P3).
+- Instance counts (moons/debris/asteroids/antenna) scale from the existing QUALITY tier object in src/core/quality.ts — read how current file consumes QUALITY and follow that pattern; static tier renders nothing new beyond what current static path does.
+- Threshold collider: kinematic, matching the existing A1 kinematic-planet-collider pattern in the current file (find how planet colliders are registered and follow it; approximate the station with a sphere collider of radius ~6 wu).
+- Materials: only createPlanetMaterial from planets.ts; TSL only; never import shader classes from bare 'three' — follow the import style already in the file ('three/webgpu', 'three/tsl').
+
+INVARIANT: engine/flight/lensing/beams/audio/swarm untouched; no new deps; emissive >1 only comes from createPlanetMaterial (you add no new emissive surfaces); getPlanetPositions consumer contract unbroken (gravity.ts reads it).
+
+EXPECTED OBSERVATIONS / FAILURE MODES:
+- If current LichPlanets.tsx exports something else other files import (grep-by-Read App.tsx, gravity.ts, regions.ts imports at top), keep those exports working. If impossible without editing another file → write .a2-blocked (see below) instead of breaking scope.
+- If REACH_SYSTEM lacks a field the plan promises → do not invent it in planets.ts; adapt locally in LichPlanets.tsx and note residual.
+
+ABORT CONDITION: any required change outside your write set, or contract mismatch you cannot absorb locally → Write file .a2-blocked at worktree root with one paragraph explaining exactly what blocks you, then stop. Never improvise cross-file edits.
+
+DONE: when your edits are complete and internally consistent, Write file .a2-done at worktree root: 3-6 lines — files changed, exports added, residuals (e.g. LICH_SYSTEM consumers), anything the conductor must check beyond tsc/vitest/build. Do NOT claim tests pass (you cannot run them).

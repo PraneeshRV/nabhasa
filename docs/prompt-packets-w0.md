@@ -2,7 +2,7 @@
 
 > **Purpose:** Executable prompt packets for the W0 hi-res final asset pass. Run
 > these in **Gemini Omni** (still plates) and **Google Flow / Veo** (hero video),
-> then drop outputs into `public/assets/_incoming/` for the curation +
+> then drop outputs into `assets-src/incoming/` for the curation +
 > compression gate (Task 6) before anything lands in `public/assets/`.
 >
 > **How to run (Praneesh):**
@@ -10,7 +10,7 @@
 >    Google Flow (video).
 > 2. Generate the count noted on the `Tool:` line, pick the best take(s).
 > 3. Save under the exact `Save as:` filename into
->    `public/assets/_incoming/<pkt-folder>/`.
+>    `assets-src/incoming/<pkt-folder>/`.
 > 4. Apply the `REJECT IF:` line to every candidate by eye before it enters the
 >    contact sheet. Rejects stay out of the repo.
 >
@@ -26,7 +26,7 @@
 ---
 
 ### PKT-01 — Skybox final (4K equirect)
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 16:9 max-res (conductor crops to 2:1) · Generate 2, pick 1 · Save as: `public/assets/_incoming/skybox/skybox-final-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 16:9 max-res (conductor crops to 2:1) · Generate 2, pick 1 · Save as: `assets-src/incoming/skybox/skybox-final-{a,b}.png`
 PROMPT: Seamless equirectangular deep-space panorama, 4096x2048. Near-black
 #030407 void, dense pinpoint starfield of cold white-blue stars, one very
 subtle drift of blue-grey #5FA8D8 nebulosity under 5% brightness. Photographic
@@ -38,7 +38,7 @@ edges · baked glow.
 ---
 
 ### PKT-02 — Brace (magma) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-brace-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-brace-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Close top-down material
 study of a magma-world crust: near-black volcanic crust #1A1410 cracked into
 rough polygonal plates, cracks filled with bright orange lava #FF6A2A as flat
@@ -54,7 +54,7 @@ baked directional shadows or cast light.
 ---
 
 ### PKT-03 — Praesidium (ocean + cloud) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-praesidium-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-praesidium-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Top-down material study of
 a terraformed ocean-and-cloud world: pale blue-white shallow sea #CFE4EF, low
 land masses in muted green #9FC3A6, soft non-emissive cloud-white banks
@@ -70,7 +70,7 @@ purple/teal cast (hard ban) · aurora green baked in as glow · visible seam.
 ---
 
 ### PKT-04 — Aletheia (glass desert) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-aletheia-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-aletheia-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Top-down material study of
 a glass-desert world: translucent cyan crystal plains #9FE3E6 fractured into
 faceted shards, darker facet recesses #2F6A72 in the fracture gaps. The
@@ -85,7 +85,7 @@ purple/teal cast (hard ban) · data-lattice baked as emissive · visible seam.
 ---
 
 ### PKT-05 — Kiln (industrial forge) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-kiln-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-kiln-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Top-down material study of
 an industrial forge-world surface: oxidized copper metal sheeting #B07A4A
 scarred with dark rust #5A3320, patches of smog-stained grit. Sparse foundry
@@ -99,7 +99,7 @@ purple/teal cast (hard ban) · visible seam · baked directional shadows.
 ---
 
 ### PKT-06 — Vesper (bioluminescent ruins) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-vesper-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-vesper-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Top-down material study of
 an overgrown ruins world: deep teal-green forest canopy #1F5E54 tangled with
 dark vine shadow #0E2A26. Sparse city-light pinpoints #FFDFA6 appear as flat
@@ -114,7 +114,7 @@ teal canopy glowing is the named slop tell) · any purple cast · visible seam.
 ---
 
 ### PKT-07 — Riven (shattered) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-riven-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-riven-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Top-down material study of
 fractured dead rock: cold mauve-grey core rock #5A4A52 broken into angular
 shards, brighter debris-glint mineral flecks #8A8A96 catching light as flat
@@ -129,7 +129,7 @@ purple/teal cast (hard ban) · any emissive/self-lit surface · visible seam.
 ---
 
 ### PKT-08 — Corona (gas giant) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-corona-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-corona-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Top-down material study of
 a gas-giant atmosphere: horizontal cloud bands alternating cream #E8D9B0 and
 amber #C79A52, soft turbulent band edges, no hard surface. No self-light —
@@ -145,7 +145,7 @@ left/right.
 ---
 
 ### PKT-09 — Threshold (gate station) surface detail plate
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `public/assets/_incoming/biomes/biome-threshold-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 1:1 max-res · Generate 2, pick 1 · Save as: `assets-src/incoming/biomes/biome-threshold-{a,b}.png`
 PROMPT: Tileable surface detail texture, 2048x2048. Close material study of
 station hull plating: instrumentation-grey hull #3A4150 panels with hull-mid
 #4A5360 separator plates, rivets, greeble bays, antenna-mount bosses — built
@@ -160,7 +160,7 @@ purple/teal cast · gate-ring emissive baked in · visible seam.
 ---
 
 ### PKT-10 — Corona ring-band strip
-Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 16:9 max-res (conductor crops center band to 8:1) · Generate 2, pick 1 · Save as: `public/assets/_incoming/rings/ring-corona-{a,b}.png`
+Tool: Gemini image gen — Nano Banana Pro (fallback: Nano Banana 2) · Aspect 16:9 max-res (conductor crops center band to 8:1) · Generate 2, pick 1 · Save as: `assets-src/incoming/rings/ring-corona-{a,b}.png`
 PROMPT: Tileable horizontal ring-band strip, 4096x512. A gas-giant ring system
 unwrapped into a flat band texture: alternating radial sub-bands of cream
 #E8D9B0 and amber #C79A52 particulate, with clear dark gap structure
@@ -176,7 +176,7 @@ lanes with divisions) · seam at the left/right wrap.
 ---
 
 ### PKT-V1 — Collapse echo plate (hero video)
-Tool: Google Flow (Veo) · 8s · 16:9 · Generate 2 takes · Save as: `public/assets/_incoming/video/collapse-echo-{a,b}.mp4`
+Tool: Google Flow (Veo) · 8s · 16:9 · Generate 2 takes · Save as: `assets-src/incoming/video/collapse-echo-{a,b}.mp4`
 PROMPT: Slow cosmic time-lapse: a dim red-orange supergiant star in near-black
 space contracts inward and collapses into a single blinding blue-white point
 #AFE3FF, emitting one clean expanding spherical shockwave shell of pale blue
@@ -192,7 +192,7 @@ NOTE: warm ramp on the supergiant is the sanctioned exception (art-direction
 Take-a failure modes (conductor frame review): Veo watermark bottom-right; collapse
 read as a slow soft INFLATING blue balloon (no violence, shell filled the frame as a
 flat banding-prone gradient); opening supergiant too saturated orange.
-Tool: Google Flow (Veo) · 8s · 16:9 · Generate 2 takes · Save as: `public/assets/_incoming/video/collapse-echo-{c,d}.mp4`
+Tool: Google Flow (Veo) · 8s · 16:9 · Generate 2 takes · Save as: `assets-src/incoming/video/collapse-echo-{c,d}.mp4`
 PROMPT: Photorealistic deep-space shot, static wide camera, near-black #030407
 void with sparse cold stars. 0-3s: a dim, desaturated ember-red supergiant
 hangs motionless, its surface slowly dimming and granulating, light visibly
@@ -218,7 +218,7 @@ the video is a candidate enhancement, not a dependency).
 Take-a REJECTED on its own REJECT-IF line: the foundry hot-spots rendered as
 soft-edged glowing orbs with halo falloff = baked bloom in albedo (the one hard
 rule). Everything else (copper sheeting #B07A4A, rust, palette) passed.
-Tool: same as PKT-05 · Generate 2 · Save as: `public/assets/_incoming/biomes/biome-kiln-{c,d}.png`
+Tool: same as PKT-05 · Generate 2 · Save as: `assets-src/incoming/biomes/biome-kiln-{c,d}.png`
 PROMPT: use PKT-05's prompt verbatim, but replace the hot-spot sentence with:
 "Sparse foundry hot-spots #FF7A2A appear as HARD-EDGED flat opaque orange
 discs and splatters — solid paint-like fills with crisp boundaries, zero
