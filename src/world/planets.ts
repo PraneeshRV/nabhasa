@@ -54,8 +54,17 @@ import {
   mx_fractal_noise_float,
   mx_worley_noise_float,
   transformNormalToView,
+  texture,
+  triplanarTexture,
+  luminance,
 } from 'three/tsl';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import {
+  MeshStandardNodeMaterial,
+  TextureLoader,
+  SRGBColorSpace,
+  RepeatWrapping,
+  type Texture,
+} from 'three/webgpu';
 
 // Data layer split (W6a): world types + LICH_SYSTEM live in planetData.ts
 // (three-free) so the static route's entry chunk never pulls three. Re-exported
@@ -230,6 +239,47 @@ const bumpNormal = (scale: number, amp: number) => {
   );
 };
 
+// ── Biome detail plates (W6b) ───────────────────────────────────────────────
+// AI-gen curated 2048² plates (docs/assets-ledger.md) layered as a SUBTLE
+// surface-detail modulation ON TOP of the procedural TSL backbone — not a
+// replacement (anti-slop constitution: procedural stays the backbone, the plate
+// only adds mottle the shaders can't). One plate per Reach world, keyed by name
+// (LICH_SYSTEM bodies have no plate → null → unchanged procedural material).
+//
+// HOW it stays palette-safe: the plate is reduced to its LUMINANCE and applied
+// as a ±brightness multiplier around 1.0, so it varies surface tone/detail
+// without injecting plate colors that would fight the art-direction palette.
+// Triplanar-projected in LOCAL space (default) so the detail rotates WITH the
+// body and never pinches at the poles (the plates are square, not equirect —
+// UV-wrapping them would stretch 2:1). DETAIL_STRENGTH is the one tuning knob.
+const BIOME_PLATE_NAMES = new Set([
+  'brace', 'praesidium', 'aletheia', 'kiln', 'vesper', 'riven', 'corona', 'threshold',
+]);
+const DETAIL_STRENGTH = 0.55; // ±0.275 brightness swing from the plate luminance
+const _plateCache = new Map<string, Texture>();
+
+function loadBiomePlate(key: string): Texture {
+  let tex = _plateCache.get(key);
+  if (!tex) {
+    tex = new TextureLoader().load(`${import.meta.env.BASE_URL}assets/biomes/biome-${key}.avif`);
+    tex.colorSpace = SRGBColorSpace;
+    tex.wrapS = tex.wrapT = RepeatWrapping;
+    _plateCache.set(key, tex);
+  }
+  return tex;
+}
+
+// Scalar detail multiplier node for `spec`, or null if the world has no plate.
+// ~1.25 tiles across the diameter (scale = 1.25/radiusWu; positionLocal spans
+// ±radiusWu) — coarse enough to read as terrain, not a repeating swatch.
+function biomePlateDetail(spec: PlanetSpec) {
+  const key = spec.name.toLowerCase();
+  if (!BIOME_PLATE_NAMES.has(key)) return null;
+  const tex = loadBiomePlate(key);
+  const sample = triplanarTexture(texture(tex), null, null, float(1.25 / spec.radiusWu));
+  return float(1.0).add(luminance(sample.rgb).sub(0.5).mul(DETAIL_STRENGTH));
+}
+
 // ── Biome material factory (TSL MeshStandardNodeMaterial, star = sole light) ─
 // Extends the original fractal + worley + displace + ember-rim skeleton; the
 // `default` branch is the original Lich rocky material verbatim, so LICH_SYSTEM
@@ -389,6 +439,13 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       break;
     }
   }
+
+  // W6b: layer the curated detail plate over whatever albedo the biome branch
+  // built (single knob — the plate only modulates brightness, never replaces the
+  // procedural color or touches emissive/displacement/normal). null for
+  // plate-less bodies (LICH_SYSTEM) → material unchanged.
+  const plate = biomePlateDetail(spec);
+  if (plate) mat.colorNode = mat.colorNode.mul(plate);
 
   return mat;
 }
