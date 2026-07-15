@@ -190,15 +190,17 @@ describe('chaseSpawnPose — rail ends at the CHASE pose, not the craft pose (Fi
     expect(chase.toArray()).toEqual([10 - 5, 20 + 7, 30]);
   });
 
-  it('for the craftState initial equals the CameraRig chase pose (600,88,28), derived not magic', () => {
-    const chase = chaseSpawnPose(craftState.pos, craftState.forward, 28, 8);
+  it('for the craftState initial equals the CameraRig chase pose (600,82.5,9), derived not magic', () => {
+    // 9/2.5 restate cameraRig's OFFSET_BACK/OFFSET_UP (rescaled with the craft
+    // shrink, watch-gate 2026-07-15) — kept literal so this test stays fiber-free.
+    const chase = chaseSpawnPose(craftState.pos, craftState.forward, 9, 2.5);
     expect(chase.x).toBeCloseTo(craftState.pos.x, 6);
-    expect(chase.y).toBeCloseTo(craftState.pos.y + 8, 6); // +up·8
-    expect(chase.z).toBeCloseTo(craftState.pos.z + 28, 6); // forward (0,0,−1) ⇒ −forward·28 = +z·28
+    expect(chase.y).toBeCloseTo(craftState.pos.y + 2.5, 6); // +up·2.5
+    expect(chase.z).toBeCloseTo(craftState.pos.z + 9, 6); // forward (0,0,−1) ⇒ −forward·9 = +z·9
   });
 
   it('differs from the bare craft pose (regression: the rail must NOT end at craftPos)', () => {
-    const chase = chaseSpawnPose(craftState.pos, craftState.forward, 28, 8);
+    const chase = chaseSpawnPose(craftState.pos, craftState.forward, 9, 2.5);
     expect(chase.distanceTo(craftState.pos)).toBeGreaterThan(0);
   });
 });

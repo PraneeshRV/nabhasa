@@ -15,8 +15,10 @@ const LAMBDA_LOOK = 6; // spec: look-at approach rate
 const FOV_MIN = 60; // spec
 const FOV_MAX = 75; // spec
 const SPEED_REF = 120; // wu/s at which FOV reaches max — feel knob
-export const OFFSET_BACK = 28; // craft pos − forward·28 (spec)
-export const OFFSET_UP = 8; // + up·8 (spec)
+// Offsets rescaled with the craft shrink (watch-gate 2026-07-15): keep the same
+// craft-lengths-behind framing (~6 lengths back, ~1.7 up) at the new 1.5 wu hull.
+export const OFFSET_BACK = 9; // craft pos − forward·9
+export const OFFSET_UP = 2.5; // + up·2.5
 
 const _desired = new Vector3();
 const _up = new Vector3(0, 1, 0);

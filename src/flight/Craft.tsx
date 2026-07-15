@@ -46,7 +46,10 @@ const RESPAWN_POS: [number, number, number] = [600, 80, 0];
 
 // BallCollider radius (JSX arg below). Drives the solid-sphere moment of inertia
 // I = (2/5)·m·r² — addTorque wants torque = I·α, not m·α (finding 3).
-const BALL_RADIUS = 2;
+// Watch-gate feedback 2026-07-15: craft was planet-sized (cone 5 wu vs planet
+// r 3-9 wu). Shrunk ~3.5x so worlds read as WORLDS; all world-scale numbers
+// (orbits, GMs, rail, approach radii) intentionally untouched.
+const BALL_RADIUS = 0.6;
 const INERTIA_OVER_MASS = (2 / 5) * BALL_RADIUS * BALL_RADIUS; // I/m, given r
 
 // Region streaming cadence: push regionAt(pos) every N physics steps ≈ 10Hz at
@@ -221,7 +224,7 @@ function CraftBody({ onKill }: { onKill?: () => void }) {
       <BallCollider args={[BALL_RADIUS]} />
       {/* placeholder hull (hero glTF lands Task 13); nose toward local -Z */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[1.5, 5, 12]} />
+        <coneGeometry args={[0.45, 1.5, 12]} />
         <meshStandardMaterial color="#cfe4ff" emissive="#3a78c8" emissiveIntensity={0.4} metalness={0.6} roughness={0.4} />
       </mesh>
       <Thruster />
@@ -308,8 +311,8 @@ function Thruster() {
     (m.material as MeshBasicMaterial).opacity = t * 0.9;
   });
   return (
-    <mesh ref={ref} position={[0, 0, 2.6]} rotation={[Math.PI / 2, 0, 0]}>
-      <coneGeometry args={[0.8, 3, 8]} />
+    <mesh ref={ref} position={[0, 0, 0.8]} rotation={[Math.PI / 2, 0, 0]}>
+      <coneGeometry args={[0.25, 0.9, 8]} />
       <meshBasicMaterial color="#9fd0ff" transparent opacity={0} depthWrite={false} />
     </mesh>
   );
