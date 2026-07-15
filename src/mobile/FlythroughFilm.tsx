@@ -36,26 +36,35 @@ import { NeutronStar, starClock, starSpinAngle } from '../world/NeutronStar';
 import { PulsarBeams, beamState } from '../signatures/PulsarBeams';
 import { DysonSwarm, subscribeSwarmFlare } from '../signatures/DysonSwarm';
 import { craftState } from '../flight/craftState';
+import { SWARM_CENTER } from '../world/scale';
 import { regionAt, type RegionId } from '../world/regions';
 import { timeDilation } from '../hud/physics-data';
 import { initAudio, setMuted, getAudio } from '../audio/engine';
 import { startAmbient, getAmbient } from '../audio/ambient';
 import { initSonify, type SonifyHandle } from '../audio/sonify';
 
-// ── Authored camera path (world units; star at origin, SWARM @ (900,0,0)) ──────
+// ── Authored camera path (world units) ────────────────────────────────────────
+// LIVE-SOURCED (W6b): the mobile film's two subjects are the star (always the
+// origin) and the Dyson swarm. Star-region anchors are origin-relative (invariant).
+// The three swarm-side anchors are expressed as SWARM_CENTER + a fixed framing
+// offset, so if the swarm ever moves the camera framing follows it instead of
+// silently pointing at stale (900,0,0) coords. Same live-position discipline the
+// overture rail uses (Overture.tsx buildOvertureSources) — no duplicated swarm coord.
+//
 // Beats land roughly at: 0.0 arrival · 0.34 lensing orbit · 0.62 beam-transit
 // dive · 0.88→1.0 swarm assembly. getSpacedPoints arc-length-parameterizes the
 // curve → even camera speed across beats (a parameter-space curve would dwell
 // in long segments and rush short ones).
+const SX = SWARM_CENTER[0]; // live swarm x (was hardcoded 900 across two anchors)
 const ANCHORS: ReadonlyArray<readonly [number, number, number]> = [
   [0, 220, 1700], // arrival — star a blip, lensing ring the anomaly
   [0, 130, 760], // approach
   [300, 95, 250], // lensing orbit (r≈405, ring blazes)
   [-260, 55, 170], // orbit back (r≈312)
   [25, 95, 25], // beam-transit dive (r≈100, near +Y pole)
-  [520, 45, 210], // climb out toward swarm
-  [815, 22, 120], // swarm approach (assembly rises)
-  [900, 8, 35], // swarm core (full assembly, glitter wave)
+  [SX - 380, 45, 210], // climb out toward swarm
+  [SX - 85, 22, 120], // swarm approach (assembly rises)
+  [SX, 8, 35], // swarm core (full assembly, glitter wave)
 ];
 
 const LUT_N = 512; // baked sample count — dense enough that p-step lookups are smooth
