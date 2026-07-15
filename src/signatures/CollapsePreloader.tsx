@@ -78,6 +78,7 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
   const neutronMeshRef = useRef<THREE.Mesh>(null);
   const pointsRef = useRef<THREE.Points>(null);
   const ringRef = useRef<THREE.Mesh>(null);
+  const echoRef = useRef<THREE.Mesh>(null);
 
   // Materials + geometries built once; disposed on unmount (spec perf rule).
   const assets = useMemo(() => {
@@ -94,7 +95,30 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
     const pointsGeo = new THREE.BufferGeometry();
     pointsGeo.setAttribute('position', new THREE.BufferAttribute(buildShell(count, 12, 55), 3));
     pointsGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 80);
-    return { starMat, partMat, ringMat, flashMat, neutronMat, starGeo, neutronGeo, ringGeo, flashGeo, pointsGeo };
+    // Collapse-echo video (assets-ledger PKT-V1b: implosion → #AFE3FF point →
+    // thin shell). ADDITIVE backdrop plane behind the procedural collapse — the
+    // video's black frame vanishes under additive blending, so only the light
+    // echoes through. Procedural stays the backbone (anti-slop constitution);
+    // opacity is phase-driven in applyPhase. Muted+playsInline ⇒ autoplay-legal;
+    // if play() is ever blocked the plane just stays at its opacity with a
+    // still first frame — degrades quietly, never gates the loader.
+    const echoVideo = document.createElement('video');
+    echoVideo.muted = true;
+    echoVideo.playsInline = true;
+    echoVideo.preload = 'auto';
+    const ext = echoVideo.canPlayType('video/webm') ? 'webm' : 'mp4';
+    echoVideo.src = `${import.meta.env.BASE_URL}assets/video/collapse-echo.${ext}`;
+    const echoTex = new THREE.VideoTexture(echoVideo);
+    echoTex.colorSpace = THREE.SRGBColorSpace;
+    const echoMat = new THREE.MeshBasicMaterial({
+      map: echoTex,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const echoGeo = new THREE.PlaneGeometry(260, 146); // covers the frame from z=−60 at fov 60
+    return { starMat, partMat, ringMat, flashMat, neutronMat, starGeo, neutronGeo, ringGeo, flashGeo, pointsGeo, echoVideo, echoTex, echoMat, echoGeo };
   }, [tier]);
 
   useEffect(() => {
@@ -110,7 +134,19 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
       a.ringGeo.dispose();
       a.flashGeo.dispose();
       a.pointsGeo.dispose();
+      a.echoTex.dispose();
+      a.echoMat.dispose();
+      a.echoGeo.dispose();
+      a.echoVideo.pause();
+      a.echoVideo.removeAttribute('src'); // release the decoder/network handle
+      a.echoVideo.load();
     };
+  }, [assets]);
+
+  // Start the echo playback once (muted ⇒ autoplay-legal). A rejected play()
+  // leaves the still first frame — acceptable degradation, never fatal.
+  useEffect(() => {
+    assets.echoVideo.play().catch(() => {});
   }, [assets]);
 
   // Phase machine state (refs — never per-frame React state). Typed <number> so
@@ -147,6 +183,7 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
     let neutronVis = false;
     let ringVis = false;
     let pointsVis = false;
+    let echoOpacity = 0; // additive video-echo plane (PKT-V1b)
     U.uImplosion.value = 0;
     U.uShockwave.value = 0;
     U.uFlash.value = 0;
@@ -156,6 +193,7 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
         const pr = U.uProgress.value;
         emberScale = lerp(GIANT_SCALE, 0.5, clamp01(pr));
         emberVis = true;
+        echoOpacity = 0.18; // faint ambient echo behind the compressing giant
         break;
       }
       case PHASE.IMPLODE: {
@@ -165,12 +203,14 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
         U.uImplosion.value = phaseT;
         U.uFlash.value = phaseT * 0.7;
         pointsVis = true;
+        echoOpacity = lerp(0.18, 0.5, phaseT); // swells with the implosion
         break;
       }
       case PHASE.BLACK: {
         U.uImplosion.value = 1;
         U.uFlash.value = lerp(0.7, 0, phaseT);
         pointsVis = true;
+        echoOpacity = 0.5;
         break;
       }
       case PHASE.SETTLE: {
@@ -179,6 +219,7 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
         U.uShockwave.value = phaseT;
         ringScale = 8 + phaseT * 70;
         ringVis = true;
+        echoOpacity = lerp(0.5, 0.12, phaseT); // recede as the neutron star settles
         break;
       }
       case PHASE.PULLBACK: {
@@ -188,6 +229,7 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
         ringScale = 78 + phaseT * 40;
         ringVis = true;
         camera.position.z = lerp(60, 150, phaseT);
+        echoOpacity = lerp(0.12, 0, phaseT);
         break;
       }
       case PHASE.ENGAGE: {
@@ -200,6 +242,9 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
         break;
       }
     }
+
+    assets.echoMat.opacity = echoOpacity;
+    if (echoRef.current) echoRef.current.visible = echoOpacity > 0;
 
     if (emberMeshRef.current) {
       emberMeshRef.current.scale.setScalar(emberScale);
@@ -282,6 +327,8 @@ function CollapseScene({ tier, ready, dev, onEngageReady }: SceneProps) {
 
   return (
     <group>
+      {/* Video-echo backdrop: behind everything, additive, phase-gated opacity. */}
+      <mesh ref={echoRef} geometry={assets.echoGeo} material={assets.echoMat} position={[0, 0, -60]} visible={false} />
       <mesh ref={emberMeshRef} geometry={assets.starGeo} material={assets.starMat} />
       <mesh ref={neutronMeshRef} geometry={assets.neutronGeo} material={assets.neutronMat} visible={false} />
       <mesh ref={ringRef} geometry={assets.ringGeo} material={assets.ringMat} visible={false} />

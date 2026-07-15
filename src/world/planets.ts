@@ -255,7 +255,10 @@ const bumpNormal = (scale: number, amp: number) => {
 const BIOME_PLATE_NAMES = new Set([
   'brace', 'praesidium', 'aletheia', 'kiln', 'vesper', 'riven', 'corona', 'threshold',
 ]);
-const DETAIL_STRENGTH = 0.55; // ±0.275 brightness swing from the plate luminance
+// 0.55 was invisible in the re-fly gate ("you haven't used the textures") —
+// raised so the curated plates actually READ from flight distance. Still
+// luminance-only, still palette-safe; drop back toward 0.55 if it turns noisy.
+const DETAIL_STRENGTH = 0.85; // ±0.425 brightness swing from the plate luminance
 const _plateCache = new Map<string, Texture>();
 
 function loadBiomePlate(key: string): Texture {

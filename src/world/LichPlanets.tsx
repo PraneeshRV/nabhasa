@@ -32,7 +32,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three/webgpu';
-import { color, float, fract, length, mix, smoothstep, step, uv } from 'three/tsl';
+import { clamp, color, float, fract, length, luminance, mix, smoothstep, step, texture, uv, vec2 } from 'three/tsl';
 import { REACH_SYSTEM, createPlanetMaterial, type PlanetSpec } from './planets';
 import { detectTier, type Tier } from '../core/tiers';
 import { QUALITY } from '../core/quality';
@@ -189,11 +189,25 @@ function Moons({ spec }: { spec: PlanetSpec }) {
 }
 
 // ── ring: ringGeometry with concentric banded alpha + tilt (Kiln, Corona) ──────
+// Corona's lanes come from the CURATED ring plate (assets-ledger PKT-10: 8:1
+// center-band crop, cream/amber lanes + Cassini gaps). The strip is a 1-D radial
+// profile: sample u = position across the band (inner→outer), constant around
+// the azimuth — the Saturn-ring idiom. Dark gaps in the plate become transparent
+// via a luminance ramp, so the Cassini gaps are the ARTWORK's, not procedural.
+let _ringPlate: THREE.Texture | null = null;
+function loadRingPlate(): THREE.Texture {
+  if (!_ringPlate) {
+    _ringPlate = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}assets/rings/ring-corona.avif`);
+    _ringPlate.colorSpace = THREE.SRGBColorSpace;
+  }
+  return _ringPlate;
+}
+
 function Ring({ spec }: { spec: PlanetSpec }) {
   const r = spec.props!.ring!;
   const isGiant = spec.biome === 'gasGiant';
-  const bands = isGiant ? 12 : 6; // gas-giant: fine rings; forge: chunkier habitat tiles
-  const ringHex = isGiant ? '#dcc78e' : '#4a3528'; // Corona band-mid / Kiln dark metal
+  const bands = 6; // Kiln habitat tiles (Corona now reads its plate, not a band count)
+  const ringHex = '#4a3528'; // Kiln dark metal
   const material = useMemo(() => {
     const m = new THREE.MeshStandardNodeMaterial();
     m.roughnessNode = float(0.7);
@@ -201,24 +215,26 @@ function Ring({ spec }: { spec: PlanetSpec }) {
     // ringGeometry uv maps the annulus into a centered square, so radial distance
     // from center = length(uv·2 − 1) ∈ [inner/outer, 1].
     const radial = length(uv().mul(float(2)).sub(float(1)));
-    const bandPhase = fract(radial.mul(float(bands)));
     if (isGiant) {
-      // Corona: cream↔amber banded albedo (the two gas-giant palette albedos,
-      // ≤1, no self-light — Corona has no emissive) + a Cassini-style dark gap.
-      m.colorNode = mix(color('#e8d9b0'), color('#c79a52'), bandPhase);
-      const gap = smoothstep(float(0.77), float(0.78), radial).mul(
-        smoothstep(float(0.795), float(0.785), radial),
-      );
-      m.opacityNode = smoothstep(float(0.3), float(0.55), bandPhase).mul(float(1.0).sub(gap));
+      // Corona: curated ring plate. radialT: 0 at the inner edge, 1 at the outer.
+      const innerFrac = float(r.inner / r.outer);
+      const radialT = clamp(radial.sub(innerFrac).div(float(1.0).sub(innerFrac)), 0.0, 1.0);
+      const s = texture(loadRingPlate(), vec2(radialT, float(0.5)));
+      m.colorNode = s.rgb; // curated albedo ≤1, no self-light (art-dir §Corona ring)
+      // Lane alpha from plate luminance (gaps go clear) + inner/outer edge feather.
+      m.opacityNode = smoothstep(float(0.06), float(0.3), luminance(s.rgb))
+        .mul(smoothstep(float(0.0), float(0.05), radialT))
+        .mul(smoothstep(float(1.0), float(0.94), radialT));
     } else {
       // Kiln: dark metal habitat tiles (unchanged).
+      const bandPhase = fract(radial.mul(float(bands)));
       m.colorNode = color(ringHex);
       m.opacityNode = step(float(0.5), bandPhase);
     }
     m.transparent = true;
     m.side = THREE.DoubleSide;
     return m;
-  }, [ringHex, bands, isGiant]);
+  }, [ringHex, bands, isGiant, r.inner, r.outer]);
   useEffect(() => () => material.dispose(), [material]);
 
   return (
