@@ -18,7 +18,7 @@ import {
   orbitalV,
   surfaceGravity,
 } from '../hud/physics-data';
-import { LICH_SYSTEM } from '../world/planets';
+import { LICH_SYSTEM } from '../world/planetData';
 import PORTFOLIO from '../content/portfolio.json';
 
 // The portfolio archive — SAME single source as the live approach panels

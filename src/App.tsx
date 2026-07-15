@@ -1,161 +1,61 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { NabhasaCanvas } from './core/renderer';
-import { PostFx } from './core/post';
-import { useFrame, useThree } from '@react-three/fiber';
-import { usePerfProbe } from './core/perfProbe';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { detectTier, type Tier } from './core/tiers';
-import { QUALITY } from './core/quality';
-import { Starfield } from './world/Starfield';
-import { NebulaPlates } from './world/NebulaPlates';
-import { REGION_PROFILES, useRegion } from './world/regions';
-import type { AmbientLight } from 'three';
-import { NeutronStar, starSpinAngle, starClock } from './world/NeutronStar';
-import { LichPlanets } from './world/LichPlanets';
-import { Aurora } from './world/Aurora';
-import { PulsarBeams } from './signatures/PulsarBeams';
-import { DysonSwarm } from './signatures/DysonSwarm';
-import { CameraRig } from './flight/cameraRig';
-import { attachInput } from './flight/input';
-import { Overture, type OvertureHudState } from './overture/Overture';
-import { prefersReducedMotion } from './overture/skip';
-import { LensingSkybox } from './signatures/LensingSkybox';
-import { CollapsePreloader } from './signatures/CollapsePreloader';
 import { StaticExperience } from './fallback/StaticExperience';
-import { initAudio, setMuted } from './audio/engine';
-import { startAmbient, getAmbient } from './audio/ambient';
-import { initSonify, setActiveSonify, getActiveSonify, noop } from './audio/sonify';
-// Task 14 gate (finding 3): game/courier + score + ResultCard + hudStore + Beacons
-// must NOT load on the mobile route. These were statically imported → they landed
-// in the entry chunk fetched on EVERY route (incl. mobile). React.lazy splits them
-// into the desktop chunk (rendered only inside ExperienceShell / MainExperience,
-// desktop after ENGAGE). useCourierStore is a store (not a component) → reached
-// via flight/Craft's static import (Craft itself lazy-loads, so courier lands in
-// the flight chunk, never the entry/mobile chunk). The old onKill dynamic import
-// here was redundant (finding 3); the fail dispatch is now synchronous in Craft.
-const Telemetry = lazy(() => import('./hud/Telemetry').then((m) => ({ default: m.Telemetry })));
-const HudSampler = lazy(() => import('./hud/hudStore').then((m) => ({ default: m.HudSampler })));
-const MissionResult = lazy(() => import('./hud/MissionResult').then((m) => ({ default: m.MissionResult })));
-const Beacons = lazy(() => import('./signatures/Beacons').then((m) => ({ default: m.Beacons })));
-// A2 P3b: approach-triggered portfolio panel. ApproachSampler (useFrame leaf, 5Hz)
-// mounts in-canvas next to HudSampler; ApproachPanel is the DOM overlay (mounted
-// next to Telemetry in ExperienceShell). Lazy like HudSampler/Telemetry so neither
-// the sampler's world deps nor the panel reach the mobile/static chunks.
-const ApproachSampler = lazy(() => import('./hud/approachStore').then((m) => ({ default: m.ApproachSampler })));
-const ApproachPanel = lazy(() => import('./hud/ApproachPanel').then((m) => ({ default: m.ApproachPanel })));
 
-// ponytail: query-param dev routing; real region/experience shell arrives in Wave 1.
+// W6a: the entire R3F/live layer (three/webgpu, @react-three/fiber, world,
+// signatures, flight, overture, the collapse preloader, the mobile film, audio)
+// lazy-splits into its own chunk so the entry chunk ships NO three.js. App
+// statically imports only react + core/tiers (three-free feature detection) +
+// StaticExperience (the DOM-only reduced-motion route). Cached loads resolve the
+// live chunk before BootVeil ever paints (CSS animation-delay, no JS timer);
+// genuinely slow streams fade the veil in.
+const LiveExperience = lazy(() => import('./LiveExperience'));
+
+// Dev pages already lazy — own chunks, never the entry graph. They pull three
+// (lensing skybox / system materials) but only on the dev route, so the entry
+// chunk is unaffected.
 const DEV_PAGES: Record<string, React.LazyExoticComponent<() => React.JSX.Element>> = {
   lensing: lazy(() => import('./dev/LensingDev')),
   system: lazy(() => import('./dev/SystemDev')),
 };
 
-// Rapier WASM stays out of the first-paint bundle: the whole flight chunk
-// (incl. @react-three/rapier static imports) lazy-loads here. Craft brings its
-// own <Physics gravity={[0,0,0]} timeStep={FIXED_DT} updateLoop="independent">.
-// Craft.tsx has no default export → unwrap the named export for React.lazy.
-const Craft = lazy(() => import('./flight/Craft').then((m) => ({ default: m.Craft })));
-
-// Mobile designed-down film (Task 14): own chunk. Imports the world signatures
-// (now decoupled from flight/Craft via the craftState leaf) but NOT flight/Craft,
-// flight/cameraRig, or game/* → Rapier + courier/score chunks are never fetched
-// on the mobile route (spec gate: verify in DevTools network tab).
-const FlythroughFilm = lazy(() => import('./mobile/FlythroughFilm').then((m) => ({ default: m.FlythroughFilm })));
-
-function PerfLogger() {
-  usePerfProbe('main');
-  return null;
-}
-
-// Region atmosphere (spec Task 5 wiring): the streamed region (Craft pushes
-// regionAt(pos) ~10Hz into useRegionStore) drives renderer exposure + the scene
-// ambient floor +, when audio is armed, the ambient bed gain. Lerps over ~1s via
-// refs — never setState in useFrame. The ambient light is owned HERE: none existed
-// before (only the star pointLight), so nightside planets read fully black vs
-// art-direction's per-region ambient floor. exposure comes from REGION_PROFILES;
-// the renderer's default toneMappingExposure is 1.0 = arrival, so no startup pop.
-function RegionAtmosphere() {
-  const gl = useThree((s) => s.gl);
-  const region = useRegion();
-  const ambRef = useRef<AmbientLight>(null);
-  const cur = useRef({ exp: 1, amb: REGION_PROFILES.arrival.ambientLevel });
-  const tgt = REGION_PROFILES[region];
-  useFrame((_, rawDt) => {
-    const dt = Math.min(rawDt, 1 / 30);
-    const k = 1 - Math.exp(-dt / 0.3); // ~1s exponential settle
-    cur.current.exp += (tgt.exposure - cur.current.exp) * k;
-    cur.current.amb += (tgt.ambientLevel - cur.current.amb) * k;
-    gl.toneMappingExposure = cur.current.exp;
-    if (ambRef.current) ambRef.current.intensity = cur.current.amb;
-    const amb = getAmbient();
-    if (amb) amb.setBedGain(cur.current.amb);
-  });
-  // ponytail: dim blue-grey floor; intensity={0} so R3F's region-change prop
-  // re-apply (which clobbered the lerped ref to 0.015 for one frame mid-transition,
-  // finding 6) is harmless — useFrame's ref write is the SOLE owner, and it runs in
-  // the same frame after commit, overwriting the 0. Starts black, lerps to arrival
-  // on the first frame. Color is a feel knob.
-  return <ambientLight ref={ambRef} color="#2a3548" intensity={0} />;
-}
-
-// W4 overture wiring: MainExperience mounts the Overture as the SOLE camera driver
-// first; the flight stack (Craft + CameraRig + samplers) mounts only on handover.
-// Craft CANNOT mount during the overture — it sits in the star's gravity well from
-// frame one (CraftBody adds gravity force every physics step), so a 75 s intro would
-// drift it off the spawn pose the rail's chase-pose endpoint was derived from.
-function MainExperience({
-  tier,
-  flight,
-  onHandover,
-  onHud,
-}: {
-  tier: Tier;
-  flight: boolean;
-  onHandover: () => void;
-  onHud: (h: OvertureHudState) => void;
-}) {
-  // Flight input (spec Task 3): attach keyboard/touch on handover; attachInput
-  // returns its cleanup. Desktop live scene only — mobile film + the static route
-  // never render MainExperience, so kbd never binds there (constraint honored).
-  // NOT attached during the overture: any key is the overture's SKIP gesture and
-  // must not also thrust the (unmounted) craft's input state.
-  // Gamepad is polled per physics step inside CraftBody (input.pollGamepad), so no
-  // extra per-frame wiring is needed.
-  useEffect(() => {
-    if (!flight) return;
-    return attachInput(document.body);
-  }, [flight]);
-
-  // Sky ownership (spec Task 7 step 3): lensing owns the sky on every lensing tier
-  // to avoid a double sky; <Starfield> owns it only on the 'off' (static) tier.
-  // Starfield's cubemap bake therefore only runs where it renders — fine while the
-  // lensing shader uses its procedural sky (see LensingSkybox DEVIATION 2).
-  const lensing = QUALITY[tier].lensing;
+// Minimal DOM placeholder while the R3F chunk streams. Near-black #030407 (the
+// site void), no canvas, no rAF. The opacity keyframe holds it invisible for the
+// first ~150 ms (animation-delay + `both` fill) so a cached/instant chunk load
+// never flashes it; only a genuinely slow stream fades it into view. Pure CSS —
+// no JS timer, so it can never desync from Suspense resolution.
+function BootVeil() {
   return (
-    <NabhasaCanvas tier={tier}>
-      <PostFx tier={tier} />
-      {lensing === 'off' ? <Starfield tier={tier} /> : <LensingSkybox tier={tier} />}
-      <NebulaPlates tier={tier} />
-      <NeutronStar />
-      <LichPlanets tier={tier} />
-      <Aurora tier={tier} />
-      <PulsarBeams tier={tier} />
-      <DysonSwarm tier={tier} />
-      <RegionAtmosphere />
-      {flight ? (
-        <>
-          <Suspense fallback={null}>
-            <Beacons />
-            <Craft />
-            <HudSampler />
-            <ApproachSampler />
-          </Suspense>
-          <CameraRig />
-        </>
-      ) : (
-        <Overture tier={tier} onHandover={onHandover} onHud={onHud} />
-      )}
-      <PerfLogger />
-    </NabhasaCanvas>
+    <>
+      <style>{`@keyframes bootveil-in { from { opacity: 0 } to { opacity: 1 } }`}</style>
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: '#030407',
+          opacity: 0,
+          animation: 'bootveil-in 220ms ease 150ms both',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: '62%',
+            textAlign: 'center',
+            color: '#3A4150',
+            fontFamily:
+              "'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+            fontSize: 11,
+            letterSpacing: '0.35em',
+          }}
+        >
+          INITIALIZING
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -175,211 +75,22 @@ function useTier(): Tier | null {
   return tier;
 }
 
-// Warm the real lazy payload (Rapier WASM) during the preloader so the main
-// scene is instant on ENGAGE. This mirrors Craft's own lazy import (cached), and
-// its resolution is the preloader's honest `ready` signal. A failed load still
-// resolves ready so the gate can never stall on a dead chunk.
-function useRapierWarm(): boolean {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    import('./flight/Craft')
-      .then(() => alive && setReady(true))
-      .catch(() => alive && setReady(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return ready;
-}
-
-// WebAudio unlock — MUST run inside the ENGAGE click (browser autoplay policy), so
-// CollapsePreloader fires it synchronously from the gesture, NOT from the delayed
-// (650ms setTimeout) scene swap. Guards double-init: initAudio is idempotent and
-// startAmbient has its own guard, but initSonify is not — a second call would stack
-// a second pulse tone. The handle is stashed in the sonify active-registry
-// (sonify.ts) so HudSampler's 10Hz tick drives update() (Task 9 loop, finding 1);
-// its base-gain heartbeat plays as soon as it's armed.
-let audioEngaged = false;
-function engageAudio() {
-  if (audioEngaged) return;
-  audioEngaged = true;
-  initAudio();
-  setMuted(false); // master defaults muted; "sound on" unmutes
-  startAmbient();
-  setActiveSonify(initSonify({ getSpinPhase: () => starSpinAngle(starClock.t) }));
-}
-
-// Live tiers: collapse gate → main scene. The preloader owns the only active
-// canvas during the burst (clean perf gate); the main scene mounts on ENGAGE.
-function ExperienceShell({ tier }: { tier: Tier }) {
-  const rapierReady = useRapierWarm();
-  const [entered, setEntered] = useState(false);
-  // W4 overture state: `flight` flips once on handover (Overture unmounts, flight
-  // stack mounts); overtureHud drives the DOM overlay (HUD fade ramp across the
-  // last ~11 s + the "YOU HAVE THE CRAFT" beat). The fade is quantized to 0.02
-  // before setState so the per-frame onHud stream costs ~50 re-renders across the
-  // whole ramp instead of one per frame (never setState in useFrame idiom, kept
-  // honest at the App boundary).
-  // Reduced-motion belt-and-suspenders: detectTier already routes reduced-motion
-  // to the static tier (this shell never mounts), but `?forceTier=` bypasses that
-  // check — so a reduced-motion user on a forced live tier still skips the
-  // overture and starts directly in flight.
-  const [flight, setFlight] = useState(() => prefersReducedMotion());
-  const [overtureHud, setOvertureHud] = useState<OvertureHudState>({ fade: 0, text: '' });
-  const onHud = (h: OvertureHudState) => {
-    const fade = Math.round(h.fade * 50) / 50;
-    setOvertureHud((prev) => (prev.fade === fade && prev.text === h.text ? prev : { fade, text: h.text }));
-  };
-  // Own the audio graph's lifetime: engageAudio fires in the ENGAGE gesture inside
-  // this shell, so on unmount stop+disconnect the ambient bed + the active sonify
-  // handle (sonify.ts active registry). Reset audioEngaged so a remount re-arms on
-  // the next ENGAGE — otherwise the module guard would leave a returned-to route
-  // silent (the ctx itself stays alive; only ambient/sonify nodes are rebuilt).
-  useEffect(
-    () => () => {
-      getActiveSonify().dispose();
-      setActiveSonify(noop);
-      getAmbient()?.dispose();
-      audioEngaged = false;
-    },
-    [],
-  );
-  return (
-    <>
-      {entered && (
-        <MainExperience tier={tier} flight={flight} onHandover={() => setFlight(true)} onHud={onHud} />
-      )}
-      {entered && (
-        <Suspense fallback={null}>
-          {/* Spec: "HUD fades in during last 10 s" — the overture's handover-phase
-              ramp drives Telemetry's opacity; after handover it is fully opaque.
-              Full-viewport fixed wrapper so .hud-root's fixed inset:0 resolves to
-              the same geometry (opacity<1 makes this a containing block). */}
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              opacity: flight ? 1 : overtureHud.fade,
-              transition: 'opacity 200ms linear',
-              pointerEvents: 'none',
-            }}
-          >
-            <Telemetry />
-          </div>
-        </Suspense>
-      )}
-      {/* Own Suspense boundaries: these mount at the flight flip, and a lazy
-          sibling suspending in Telemetry's boundary would unmount the visible,
-          just-faded-in HUD right at the handover moment. */}
-      {entered && flight && (
-        <Suspense fallback={null}>
-          <MissionResult />
-        </Suspense>
-      )}
-      {entered && flight && (
-        <Suspense fallback={null}>
-          <ApproachPanel />
-        </Suspense>
-      )}
-      {/* Overture beat: "YOU HAVE THE CRAFT" — centered banner, HUD typography
-          tokens (hud.css palette), rides the same fade ramp, gone at handover. */}
-      {entered && !flight && overtureHud.text && (
-        <div
-          aria-live="polite"
-          style={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            top: '62%',
-            textAlign: 'center',
-            opacity: overtureHud.fade,
-            color: '#afe3ff',
-            fontFamily:
-              "'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
-            fontSize: 15,
-            letterSpacing: '0.35em',
-            textShadow: '0 0 12px rgba(175, 227, 255, 0.45)',
-            pointerEvents: 'none',
-            zIndex: 21,
-          }}
-        >
-          {overtureHud.text}
-        </div>
-      )}
-      {!entered && (
-        <CollapsePreloader
-          tier={tier}
-          ready={rapierReady}
-          onEnter={() => setEntered(true)}
-          onSoundUnlock={engageAudio}
-        />
-      )}
-    </>
-  );
-}
-
-// /?dev=collapse — art-direction harness for the preloader (spec Task 8 Step 1):
-// leva drives progress + phase manually; real loading is bypassed.
-function CollapseHarness({ tier }: { tier: Tier }) {
-  return <CollapsePreloader tier={tier} ready onEnter={() => {}} dev />;
-}
-
-// Mobile film route detection (spec Task 14): coarse pointer + narrow viewport.
-function isCoarseMobile(): boolean {
-  return matchMedia('(pointer: coarse)').matches && window.innerWidth < 900;
-}
-
-// Spec Task 14: coarse pointer caps at webgpu-low-or-below (DPR ≤1.5, reduced
-// particle/swarm counts via QUALITY). detectTier already returns webgpu-low for
-// coarse pointers; this only guards a coarse+wide+desktop-GPU edge case.
-function mobileTier(t: Tier): Tier {
-  return t === 'webgpu-high' ? 'webgpu-low' : t;
-}
-
-// Mobile gate: the collapse preloader (reveal #1, unchanged signature) doubles
-// as the WebAudio unlock gesture, then the designed-down fly-through carries
-// reveals #2–4 (lensing orbit → beam transit → swarm assembly). No
-// useRapierWarm here — the Rapier/game chunk must stay unfetched on mobile.
-function FilmShell({ tier }: { tier: Tier }) {
-  const [entered, setEntered] = useState(false);
-  const [sound, setSound] = useState(false);
-  if (!entered) {
-    return (
-      <CollapsePreloader
-        tier={tier}
-        ready
-        onEnter={() => setEntered(true)}
-        onSoundUnlock={() => {
-          // WebAudio MUST unlock inside this gesture (autoplay policy): initAudio
-          // builds the graph + resumes the ctx synchronously HERE. setSound then
-          // arms FlythroughFilm's own ambient/sonify path (idempotent — initAudio
-          // no-ops on its second call). Mirrors ExperienceShell's engageAudio.
-          initAudio();
-          setSound(true);
-        }}
-      />
-    );
-  }
-  return (
-    <Suspense fallback={null}>
-      <FlythroughFilm tier={tier} sound={sound} />
-    </Suspense>
-  );
-}
-
 export function App() {
   // Top-level so hooks run unconditionally regardless of dev routing below.
   const tier = useTier();
   const dev = new URLSearchParams(location.search).get('dev');
 
   if (dev === 'collapse') {
-    return tier ? <CollapseHarness tier={tier} /> : null;
+    return tier ? (
+      <Suspense fallback={<BootVeil />}>
+        <LiveExperience tier={tier} dev="collapse" />
+      </Suspense>
+    ) : null;
   }
   const Page = dev ? DEV_PAGES[dev] : undefined;
   if (Page) {
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<BootVeil />}>
         <Page />
       </Suspense>
     );
@@ -387,8 +98,11 @@ export function App() {
 
   if (!tier) return null;
   if (tier === 'static') return <StaticExperience />; // reduced-motion: no-motion fallback
-  // Mobile designed-down cut (Task 14). Runs AFTER the static check so a
-  // reduced-motion mobile user still gets the static experience, not the film.
-  if (isCoarseMobile()) return <FilmShell tier={mobileTier(tier)} />;
-  return <ExperienceShell tier={tier} />;
+  // Live layer streams in: desktop ExperienceShell, or the mobile FilmShell (the
+  // coarse-mobile routing lives inside LiveExperience, three-free from App's POV).
+  return (
+    <Suspense fallback={<BootVeil />}>
+      <LiveExperience tier={tier} />
+    </Suspense>
+  );
 }
