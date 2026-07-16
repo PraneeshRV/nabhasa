@@ -219,7 +219,9 @@ const STARHOT = color('#AFE3FF');
 // Pole-stable tangent frame (swaps the reference axis near the poles so the
 // cross product never collapses to NaN). One definition; each displaced branch
 // calls it with that branch's noise scale + a bump strength.
-const bumpNormal = (scale: number, amp: number) => {
+// k = positionLocal normalization factor (R_REF/radiusWu — see createPlanetMaterial):
+// keeps relief feature size radius-invariant, matching the color-noise space.
+const bumpNormal = (scale: number, amp: number, k = 1) => {
   const s = float(scale);
   const a = float(amp);
   const n = normalLocal;
@@ -227,7 +229,7 @@ const bumpNormal = (scale: number, amp: number) => {
   const t1 = normalize(ref.sub(n.mul(dot(n, ref))));
   const t2 = cross(n, t1);
   const eps = float(0.04);
-  const p = positionLocal;
+  const p = positionLocal.mul(k);
   const hC = mx_fractal_noise_float(p.mul(s), 2, 2.0, 0.5, 1.0);
   const hX = mx_fractal_noise_float(p.add(t1.mul(eps)).mul(s), 2, 2.0, 0.5, 1.0);
   const hY = mx_fractal_noise_float(p.add(t2.mul(eps)).mul(s), 2, 2.0, 0.5, 1.0);
@@ -291,7 +293,18 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
   const mat = new MeshStandardNodeMaterial();
 
   const uScale = uniform(3.0); // master noise scale
-  const base = positionLocal.mul(uScale);
+  // Radius-normalized noise space (2026-07-15 look-loop round 2, capture
+  // evidence): noise ran on RAW positionLocal, so the ×6 radius scale-up made
+  // every surface feature 6× finer relative to the disc — lava pools became
+  // confetti specks, sea/land mottle averaged to wash. R_REF=5 restores the
+  // pre-scale-up feature size the biomes were art-directed at (original radii
+  // ~2.2–9, center ≈5): a world of ANY radius now shades like an r=5 world.
+  const R_REF = 5;
+  const kNorm = R_REF / spec.radiusWu;
+  const noiseP = positionLocal.mul(kNorm);
+  const base = noiseP.mul(uScale);
+  // Relief sampler in the same normalized space as the color noise.
+  const bump = (scale: number, amp: number) => bumpNormal(scale, amp, kNorm);
 
   // Shared terrain fields.
   const terrain = mx_fractal_noise_float(base, 5, 2.0, 0.55, 1.0); // raw octave sum ±~2.1 — clamp below is LOAD-BEARING (albedo ≤1 rule)
@@ -316,7 +329,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cDark, cLight, t01.mul(0.5)).mul(float(1.0).sub(craterMask.mul(0.4)));
       const h = mx_fractal_noise_float(base.mul(0.6), 4, 2.0, 0.5, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(h.mul(spec.displaceAmp * spec.radiusWu)));
-      mat.normalNode = bumpNormal(0.6, 3.0); // crust-crack relief catches the Ember
+      mat.normalNode = bump(0.6, 3.0); // crust-crack relief catches the Ember
       mat.roughnessNode = float(0.9);
       mat.metalnessNode = float(0.0);
       const lava = smoothstep(0.55, 0.85, cells);
@@ -349,7 +362,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(craterMask.mul(0.3)));
       const spire = mx_fractal_noise_float(base.mul(1.1), 4, 2.0, 0.6, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(spire.mul(spec.displaceAmp * spec.radiusWu)));
-      mat.normalNode = bumpNormal(1.1, 4.0); // faceted spire edges catch the Ember as bright shards
+      mat.normalNode = bump(1.1, 4.0); // faceted spire edges catch the Ember as bright shards
       mat.roughnessNode = mix(float(0.05), float(0.35), t01); // glass glossy
       mat.metalnessNode = float(0.0);
       const lattice = smoothstep(0.6, 0.85, cells);
@@ -361,7 +374,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(craterMask.mul(0.4)));
       const h = mx_fractal_noise_float(base.mul(0.6), 4, 2.0, 0.5, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(h.mul(spec.displaceAmp * spec.radiusWu)));
-      mat.normalNode = bumpNormal(0.6, 2.0); // forge mottle relief (subtle)
+      mat.normalNode = bump(0.6, 2.0); // forge mottle relief (subtle)
       mat.roughnessNode = float(0.75);
       mat.metalnessNode = float(0.1);
       const foundry = smoothstep(0.7, 0.9, cells);
@@ -376,7 +389,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(vine.mul(0.5)));
       const h = mx_fractal_noise_float(base.mul(0.6), 4, 2.0, 0.5, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(h.mul(spec.displaceAmp * spec.radiusWu)));
-      mat.normalNode = bumpNormal(0.6, 2.0); // canopy relief (subtle)
+      mat.normalNode = bump(0.6, 2.0); // canopy relief (subtle)
       mat.roughnessNode = float(0.8);
       mat.metalnessNode = float(0.0);
       const city = smoothstep(0.55, 0.8, cells);
@@ -388,7 +401,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       mat.colorNode = mix(cLight, cDark, t01).mul(float(1.0).sub(craterMask.mul(0.5)));
       const crack = mx_fractal_noise_float(base.mul(2.4), 5, 2.2, 0.6, 1.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(crack.mul(spec.displaceAmp * spec.radiusWu)));
-      mat.normalNode = bumpNormal(2.4, 5.0); // fracture relief — cold rock, no self-light
+      mat.normalNode = bump(2.4, 5.0); // fracture relief — cold rock, no self-light
       mat.roughnessNode = float(0.85);
       mat.metalnessNode = float(0.02);
       mat.emissiveNode = EMBER.mul(fresnel.mul(day).mul(0.08)); // faint rim only
@@ -416,7 +429,7 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
       // Atmospheric cloud-band turbulence (NOT a hard surface: no silhouette
       // displacement, displaceAmp stays 0 — the bands just read as flowing 3D
       // relief instead of painted stripes). Subtle amp; bands still gradate at the limb.
-      mat.normalNode = bumpNormal(0.5, 1.0);
+      mat.normalNode = bump(0.5, 1.0);
       mat.emissiveNode = EMBER.mul(fresnel.mul(day).mul(0.06));
       break;
     }

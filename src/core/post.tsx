@@ -45,7 +45,7 @@
 //     outputNode (no explicit tonemap pass needed).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PostProcessing } from 'three/webgpu';
 import { pass, uniform, float, vec2, vec3, uv, time, fract, sin, dot, length, smoothstep, max } from 'three/tsl';
@@ -61,10 +61,13 @@ import { KILL_RADIUS } from '../world/scale';
 // threshold is CONSTANT (>1 ⇒ emissive-only; diffuse never blooms). Only radius
 // + strength move with region.
 const BLOOM_THRESHOLD = 1.0; // color must EXCEED this to bloom ⇒ strictly >1.0
+// Retuned 2026-07-15 (look-loop round 1): the original profile was authored for
+// the r=10 star pre-scale-up and never runtime-gated; at r=50 the arrival
+// profile bloomed the disc into a frame-eating blob (capture evidence).
 const REGION_BLOOM: Record<string, { strength: number; radius: number }> = {
-  arrival: { strength: 0.6, radius: 0.4 }, // distant star only: small radius, low strength
-  nearStar: { strength: 1.1, radius: 0.8 }, // beam cores + star limb: wider radius
-  swarm: { strength: 0.4, radius: 0.3 }, // nearly off — swarm reads by geometry, not glow
+  arrival: { strength: 0.35, radius: 0.3 }, // distant star only: small radius, low strength
+  nearStar: { strength: 0.7, radius: 0.55 }, // beam cores + star limb: wider radius
+  swarm: { strength: 0.3, radius: 0.25 }, // nearly off — swarm reads by geometry, not glow
 };
 
 // ── imperfection layer (art-direction §Imperfection layer) ───────────────────
@@ -91,6 +94,7 @@ function PostFxInner({ tier }: { tier: Tier }) {
   const grainAmp = tier === 'webgpu-high' ? GRAIN_AMP : 0;
 
   const pp = useMemo(() => {
+    try {
     const post = new PostProcessing(gl as any); // gl = WebGPURenderer (R3F types it loosely)
 
     // scenePass = the rendered scene as a texture node (sampled at uv()).
@@ -137,12 +141,28 @@ function PostFxInner({ tier }: { tier: Tier }) {
 
     post.outputNode = out;
     return { post, uStrength, uRadius, uVignette, uCA };
+    } catch (e) {
+      // Fail-open (spec §Error handling): a construction failure must degrade
+      // to the plain render path, never to a dead canvas.
+      console.error('[post] pipeline construction failed:', e);
+      return null;
+    }
   }, [gl, scene, camera, grainAmp]);
 
-  useEffect(() => () => pp.post.dispose(), [pp]);
+  useEffect(() => () => pp?.post.dispose(), [pp]);
+
+  // Fail-open guard (spec §Error handling: "never a black screen"). This
+  // priority-1 subscriber disables R3F's auto-render, so a throwing
+  // post.render() would otherwise paint NOTHING forever. First throw: log once,
+  // permanently fall back to the plain renderer path — flat frame beats black.
+  const postDead = useRef(false);
 
   useFrame(
     (_, rawDt) => {
+      if (!pp) {
+        (gl as any).render(scene, camera); // construction failed — plain render owns the frame
+        return;
+      }
       // region → bloom profile + vignette depth (read live; no React re-render)
       const region = useRegionStore.getState().region;
       const rp = REGION_BLOOM[region];
@@ -157,7 +177,23 @@ function PostFxInner({ tier }: { tier: Tier }) {
       const dt = Math.min(rawDt, 1 / 30); // clamp per Global Constraints
       pp.uCA.value += (caTarget - pp.uCA.value) * (1 - Math.exp(-dt / CA_TAU)); // slew
 
-      pp.post.render();
+      if (postDead.current) {
+        (gl as any).render(scene, camera); // fallback owner of the frame
+        return;
+      }
+      try {
+        const res = pp.post.render() as unknown;
+        if (res && typeof (res as Promise<unknown>).catch === 'function') {
+          (res as Promise<unknown>).catch((e) => {
+            postDead.current = true;
+            console.error('[post] async pipeline failure — falling back:', e);
+          });
+        }
+      } catch (e) {
+        postDead.current = true;
+        console.error('[post] pipeline failed — falling back to plain render:', e);
+        (gl as any).render(scene, camera);
+      }
     },
     1, // priority>0 ⇒ R3F skips its default gl.render(); this owns the frame.
   );

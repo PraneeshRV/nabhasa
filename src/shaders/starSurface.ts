@@ -23,7 +23,11 @@ import { MeshBasicNodeMaterial } from 'three/webgpu';
 export const starUniforms = {
   // >1 → selective-bloom target. Art direction: bloom threshold >1 catches ONLY
   // this (diffuse surfaces can never bloom).
-  emissive: uniform(4.0),
+  // 4.0 → 1.8 (2026-07-15 look-loop round 1, capture evidence): tuned pre-scale
+  // for the r=10 star with post OFF; at r=50 with bloom ON the disc blew out to
+  // a white blob that ate half the frame. 1.8 keeps it above the bloom
+  // threshold while letting churn detail survive the AgX tonemap.
+  emissive: uniform(1.8),
   hotspotSharpness: uniform(6.0),
   // Blackbody bias: 1 = nominal B1257+12 blue-white; raise to push poles whiter.
   temperature: uniform(1.0),
