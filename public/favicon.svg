@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Nabhasa favicon — the Ember: pulsar disc + polar beams (--star-hot on void) -->
+  <rect width="32" height="32" fill="#030407"/>
+  <line x1="16" y1="2" x2="16" y2="30" stroke="#5FA8D8" stroke-width="1.6" opacity="0.55"/>
+  <circle cx="16" cy="16" r="7.5" fill="#AFE3FF"/>
+  <circle cx="16" cy="16" r="3.5" fill="#eaf6ff"/>
+</svg>

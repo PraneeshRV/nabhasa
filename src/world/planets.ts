@@ -340,14 +340,17 @@ export function createPlanetMaterial(spec: PlanetSpec): MeshStandardNodeMaterial
     }
     case 'ocean': {
       // Pale sea (glossy) vs land (rough); slow self-shadowing cloud band scroll.
-      const land = smoothstep(0.45, 0.55, t01); // terrain-high → land
-      const surf = mix(cLight, cDark, land); // sea light, land green
+      // Round 3 (capture: planet read as pale wash): deepen the sea (0.62×
+      // palette light — still the same hue family), widen the land transition so
+      // continents read as shapes, and thin the cloud veil.
+      const land = smoothstep(0.42, 0.6, t01); // terrain-high → land
+      const surf = mix(cLight.mul(0.62), cDark, land); // deeper sea, land green
       const cloud = smoothstep(
         0.55,
         0.75,
         mx_fractal_noise_float(base.mul(0.8).add(vec3(time.mul(0.02), 0, 0)), 4, 2.0, 0.5, 1.0),
       );
-      mat.colorNode = mix(surf, color('#f4f8fa'), cloud.mul(0.5));
+      mat.colorNode = mix(surf, color('#f4f8fa'), cloud.mul(0.35));
       mat.roughnessNode = mix(float(0.15), float(0.85), land); // sea glossy, land rough
       mat.metalnessNode = float(0.0);
       mat.positionNode = positionLocal.add(normalLocal.mul(spec.displaceAmp * spec.radiusWu * 0.2));

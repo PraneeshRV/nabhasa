@@ -13,8 +13,14 @@ import {
   clamp,
   pow,
   abs,
+  dot,
+  float,
+  normalize,
   normalLocal,
+  normalWorld,
   positionLocal,
+  positionWorld,
+  cameraPosition,
   time,
   mx_fractal_noise_float,
 } from 'three/tsl';
@@ -55,6 +61,14 @@ export function createStarSurfaceMaterial() {
     clamp(polar.mul(1.6).mul(starUniforms.temperature), 0.0, 1.0),
   );
 
-  mat.colorNode = col.mul(starUniforms.emissive.mul(churn.mul(0.35).add(0.75)));
+  // Look-loop round 3: the disc tonemapped to a detail-less white circle —
+  // everything sat in AgX's compressed shoulder. Two fixes:
+  //  • wider churn band (0.55–1.15×) so convection cells dip low enough to read;
+  //  • limb darkening (real stars do this): center-bright, limb falls to 0.55×,
+  //    which also hands the bloom a soft edge instead of a hard cutout rim.
+  const V = normalize(cameraPosition.sub(positionWorld));
+  const limbDark = clamp(pow(clamp(dot(normalWorld, V), 0.0, 1.0), 0.35), 0.55, 1.0);
+  const churnBand = churn.mul(0.55).add(0.6);
+  mat.colorNode = col.mul(starUniforms.emissive.mul(churnBand).mul(limbDark));
   return mat;
 }

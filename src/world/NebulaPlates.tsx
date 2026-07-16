@@ -90,7 +90,11 @@ function NebulaPlate({ file, position, intensity }: PlateDef) {
 }
 
 export function NebulaPlates({ tier }: { tier: Tier }) {
-  // webgpu-high → both plates; webgpu-low → wisp only; webgl2/static → none.
+  // webgpu-high → both plates; every other LIVE tier → wisp only; static → none.
+  // (Round 3: webgl2 is now the DEFAULT tier — rendering null here hid the
+  // curated nebula plates from every visitor. One additive billboard quad is
+  // cheap on any GPU that runs the live scene at all.)
+  if (tier === 'static') return null;
   if (tier === 'webgpu-high') {
     return (
       <>
@@ -99,8 +103,5 @@ export function NebulaPlates({ tier }: { tier: Tier }) {
       </>
     );
   }
-  if (tier === 'webgpu-low') {
-    return <NebulaPlate {...WISP} />;
-  }
-  return null;
+  return <NebulaPlate {...WISP} />;
 }
