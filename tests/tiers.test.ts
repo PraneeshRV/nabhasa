@@ -43,19 +43,28 @@ describe('detectTier', () => {
     expect(await detectTier()).toBe('static');
   });
 
-  it('adapter ≥ 1GiB maxBufferSize + fine pointer ⇒ webgpu-high', async () => {
+  // DEMOTION PIN (2026-07-15, prod re-fly gate): a good WebGPU adapter still
+  // lands on the APPROVED webgl2 presentation — the webgpu look never passed a
+  // gate. When the webgpu look passes, restore the original expectations
+  // (big+fine ⇒ webgpu-high, low limit or coarse ⇒ webgpu-low).
+  it('adapter ≥ 1GiB maxBufferSize + fine pointer ⇒ webgl2 (webgpu demoted until look-gated)', async () => {
     install({ coarse: false, gpu: { requestAdapter: async () => goodAdapter(1 << 30) } });
-    expect(await detectTier()).toBe('webgpu-high');
+    expect(await detectTier()).toBe('webgl2');
   });
 
-  it('adapter with low limit ⇒ webgpu-low', async () => {
+  it('adapter with low limit ⇒ webgl2 (demotion)', async () => {
     install({ coarse: false, gpu: { requestAdapter: async () => goodAdapter((1 << 30) - 1) } });
-    expect(await detectTier()).toBe('webgpu-low');
+    expect(await detectTier()).toBe('webgl2');
   });
 
-  it('coarse pointer (mobile) ⇒ webgpu-low even with big buffer', async () => {
+  it('coarse pointer (mobile) ⇒ webgl2 (demotion)', async () => {
     install({ coarse: true, gpu: { requestAdapter: async () => goodAdapter(1 << 30) } });
-    expect(await detectTier()).toBe('webgpu-low');
+    expect(await detectTier()).toBe('webgl2');
+  });
+
+  it('?forceTier=webgpu-high still exposes the demoted path for tuning', async () => {
+    install({ gpu: { requestAdapter: async () => goodAdapter(1 << 30) }, forceTier: 'webgpu-high' });
+    expect(await detectTier()).toBe('webgpu-high');
   });
 
   it('?forceTier= override wins (even with no gpu)', async () => {

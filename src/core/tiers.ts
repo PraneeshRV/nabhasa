@@ -25,7 +25,15 @@ export async function detectTier(): Promise<Tier> {
   const adapter = await (navigator as any).gpu.requestAdapter();
   if (!adapter) return 'webgl2'; // navigator.gpu present but blocklisted
 
-  const coarse = matchMedia('(pointer: coarse)').matches;
-  const big = adapter.limits.maxBufferSize >= 1 << 30; // 1 GiB+ ⇒ desktop-class
-  return !coarse && big ? 'webgpu-high' : 'webgpu-low';
+  // DEMOTED 2026-07-15 (prod re-fly gate): the webgpu presentation (native
+  // backend + post:true pipeline) has never passed a look gate — it read as
+  // broken on the first real-GPU prod run (headless capture: black frame),
+  // while every Praneesh approval happened on the forced webgl2 presentation.
+  // Everyone lands on the APPROVED look; `?forceTier=webgpu-high/-low` keeps
+  // the webgpu path exercisable for tuning. Restore the split below once the
+  // webgpu look passes its own gate:
+  //   const coarse = matchMedia('(pointer: coarse)').matches;
+  //   const big = adapter.limits.maxBufferSize >= 1 << 30; // 1 GiB+ ⇒ desktop-class
+  //   return !coarse && big ? 'webgpu-high' : 'webgpu-low';
+  return 'webgl2';
 }
